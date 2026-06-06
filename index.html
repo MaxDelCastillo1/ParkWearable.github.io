@@ -214,6 +214,16 @@
       background-color: #2ecc71;
       box-shadow: 0 0 8px #2ecc71;
     }
+    /* Botones de exportación */
+    .export-btn {
+      background-color: #2c3e50;
+      margin-top: 8px;
+      font-size: 0.8rem;
+      padding: 5px 10px;
+    }
+    .export-btn:hover {
+      background-color: #34495e;
+    }
 
     #contenedor {
       display: flex;
@@ -235,6 +245,9 @@
       flex-direction: column;
       gap: 25px;
     }
+    .chart-container {
+      position: relative;
+    }
   </style>
 </head>
 <body>
@@ -245,7 +258,7 @@
     <button class="close-alert" onclick="cerrarAlerta()" title="Cerrar alerta">✕</button>
   </div>
 
-  <h1>Monitor de Temblores (FFT Real + Filtro Robusto)</h1>
+  <h1>Monitor de Temblores</h1>
   <p id="estado">Intentando conectar al servidor...</p>
   <p class="firebase-status" id="firebaseStatus"></p>
 
@@ -266,6 +279,7 @@
     <button class="btn-firebase" onclick="subirAFirebase()" id="btnFirebase" disabled>☁️ Subir a Firebase</button>
     <button class="btn-reset3d" onclick="resetearFigura3D()" title="Restablecer posición horizontal">↺ Reset 3D</button>
     <button id="btnManualIdent" class="btn-manual" onclick="toggleIdentificacionManual()">🔍 Identificar temblor manualmente</button>
+    <button class="export-btn" onclick="exportBoth()">📁 Exportar ambos (tiempo + frecuencia)</button>
   </div>
 
   <div class="dashboard">
@@ -289,10 +303,16 @@
 
   <div id="contenedor">
     <div class="chart-wrapper">
-        <h3>Dominio del Tiempo (Aceleración)</h3>
-        <canvas id="grafico" width="600" height="250"></canvas>
-        <h3>Dominio de la Frecuencia (Espectro FFT)</h3>
-        <canvas id="graficoFrecuencia" width="600" height="250"></canvas>
+        <div class="chart-container">
+            <h3>Dominio del Tiempo (Aceleración)</h3>
+            <canvas id="grafico" width="600" height="250"></canvas>
+            <button class="export-btn" onclick="exportTimeData()">📊 Exportar datos de tiempo (CSV)</button>
+        </div>
+        <div class="chart-container">
+            <h3>Dominio de la Frecuencia (Espectro FFT)</h3>
+            <canvas id="graficoFrecuencia" width="600" height="250"></canvas>
+            <button class="export-btn" onclick="exportFreqData()">📈 Exportar datos de frecuencia (CSV)</button>
+        </div>
     </div>
     <div id="caja3d2" style="width: 400px; height: 500px;"></div>
   </div>
@@ -432,12 +452,14 @@
     const parkinsonAlert = document.getElementById("parkinsonAlert");
     const alertMessage = document.getElementById("alertMessage");
 
-    const BUFFER_SIZE = 64; 
+    // ========== PARÁMETROS FFT (128 muestras + zero padding a 256) ==========
+    const BUFFER_SIZE = 128;
+    const FFT_PADDED_SIZE = 256;
     let bufferX = [], bufferY = [], bufferZ = [];
     const sampleRate = 50.0; 
     
-    const RMS_NOISE_THRESHOLD = 0.1; 
-    const NOISE_THRESHOLD = 1.0;     
+    const RMS_NOISE_THRESHOLD = 0.1;
+    const NOISE_THRESHOLD = 1.0;
     
     let tremorStartTime = 0; 
     let isTremorActive = false;
@@ -452,10 +474,11 @@
     let sessionData = [];
     let sessionActive = false;
 
-    // Variables globales para las frecuencias actuales
     let currentFreqX = 0.0;
     let currentFreqY = 0.0;
     let currentFreqZ = 0.0;
+
+    let chart, freqChart;
 
     function setStatusMessage(text, color = "#c5c6c7") {
       elEstado.textContent = text;
@@ -475,35 +498,28 @@
         btnManual.innerHTML = "🔍 Identificar temblor manualmente";
         setStatusMessage("🔄 Identificación manual reiniciada", "#c5c6c7");
       }
-      console.log("Identificación manual:", identificacionManual);
     }
 
-    // ========== CERRAR ALERTA ==========
     function cerrarAlerta() {
       parkinsonAlert.style.display = "none";
       parkinsonConfirmed = false;
     }
 
-    // ========== MOSTRAR ALERTA DE PARKINSON ==========
     function mostrarAlertaParkinson(frecuenciaDominante) {
       if (!parkinsonConfirmed) {
         parkinsonConfirmed = true;
         alertMessage.textContent = `⚠️ ALERTA: Posible temblor parkinsoniano detectado (${frecuenciaDominante.toFixed(1)} Hz). Se recomienda consultar al especialista.`;
         parkinsonAlert.style.display = "block";
-        
         if (firebaseReady && currentPatientId && sessionData.length > 0) {
           guardarEnFirebaseAutomatico();
         }
       }
     }
 
-    // ========== GUARDAR EN FIREBASE (AUTOMÁTICO) ==========
     function guardarEnFirebaseAutomatico() {
       if (!firebaseReady || !currentPatientId) return;
-      
       const timestamp = Date.now();
       const sesionRef = database.ref(`pacientes/${currentPatientId}/sesiones/${timestamp}`);
-      
       sesionRef.set({
         fecha: new Date().toISOString(),
         nombre_paciente: currentPatientName,
@@ -518,12 +534,9 @@
       }).then(() => {
         console.log("✅ Datos guardados automáticamente en Firebase");
         setStatusMessage("☁️ Datos guardados en la nube", "#66fcf1");
-      }).catch(err => {
-        console.error("Error al guardar en Firebase:", err);
-      });
+      }).catch(err => console.error(err));
     }
 
-    // ========== SUBIR A FIREBASE MANUAL ==========
     function subirAFirebase() {
       if (!firebaseReady) {
         alert("Firebase no está configurado. Revisa la consola.");
@@ -537,10 +550,8 @@
         alert("No hay datos de sesión. Espera a recibir datos del sensor.");
         return;
       }
-      
       const timestamp = Date.now();
       const sesionRef = database.ref(`pacientes/${currentPatientId}/sesiones/${timestamp}`);
-      
       sesionRef.set({
         fecha: new Date().toISOString(),
         nombre_paciente: currentPatientName,
@@ -557,14 +568,12 @@
       });
     }
 
-    // ========== RESETEAR FIGURA 3D ==========
     function resetearFigura3D() {
       targetRotX = 0;
       targetRotZ = 0;
       console.log("↺ Figura 3D: Volviendo a posición horizontal");
     }
 
-    // ========== FUNCIONES DE CONTROL ==========
     function forzarCapturaLarga() {
       if(client.connected) {
         client.publish(topicControl, "EXTEND");
@@ -593,34 +602,22 @@
       }
     }
 
-    // ✅ DESCARGA CSV CON NUEVAS COLUMNAS DE FRECUENCIA
+    // ========== GUARDAR TODOS LOS DATOS DE LA SESIÓN ==========
     function guardarDatosClinicos() {
       if (sessionData.length === 0) {
         alert("No hay datos de sesión disponibles. Espera a que se reciban datos.");
         return;
       }
-      
       const formatNum = (num) => {
         if (isNaN(num) || num === undefined || num === null) return "0,0";
         return num.toString().replace('.', ',');
       };
-      
-      // Cabecera con las nuevas columnas
       let csvString = "sep=;\r\nTimestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
       sessionData.forEach(p => {
-        const xFormatted = formatNum(p.x);
-        const yFormatted = formatNum(p.y);
-        const zFormatted = formatNum(p.z);
-        const fxFormatted = formatNum(p.freqX);
-        const fyFormatted = formatNum(p.freqY);
-        const fzFormatted = formatNum(p.freqZ);
-        const man = identificacionManual ? "VERDADERO" : "FALSO";
-        csvString += `${p.time};${xFormatted};${yFormatted};${zFormatted};${fxFormatted};${fyFormatted};${fzFormatted};${man}\r\n`;
+        csvString += `${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)};${identificacionManual ? "VERDADERO" : "FALSO"}\r\n`;
       });
-      
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
       const blob = new Blob([bom, csvString], { type: 'text/csv;charset=utf-8' });
-      
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
@@ -629,9 +626,77 @@
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
-      console.log("CSV descargado:", sessionData.length, "muestras");
       setStatusMessage("📥 Datos guardados correctamente.", "#66fcf1");
+    }
+
+    // ========== EXPORTAR DATOS DEL GRÁFICO DE TIEMPO ==========
+    function exportTimeData() {
+      if (!chart) return;
+      const dataX = chart.data.datasets[0].data;
+      const dataY = chart.data.datasets[1].data;
+      const dataZ = chart.data.datasets[2].data;
+      const n = dataX.length;
+      let csvRows = [];
+      csvRows.push("sep=;");
+      csvRows.push("Tiempo;Acce_X;Acce_Y;Acce_Z");
+      for (let i = 0; i < n; i++) {
+        let t = (i - n + 1) * (1 / sampleRate);
+        let x = dataX[i];
+        let y = dataY[i];
+        let z = dataZ[i];
+        let tStr = t.toFixed(3).replace('.', ',');
+        let xStr = x.toString().replace('.', ',');
+        let yStr = y.toString().replace('.', ',');
+        let zStr = z.toString().replace('.', ',');
+        csvRows.push(`${tStr};${xStr};${yStr};${zStr}`);
+      }
+      const csvContent = csvRows.join("\n");
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `time_data_${new Date().toISOString().slice(0,19)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setStatusMessage("📊 Datos de tiempo exportados a CSV", "#66fcf1");
+    }
+
+    // ========== EXPORTAR DATOS DEL GRÁFICO DE FRECUENCIA ==========
+    function exportFreqData() {
+      if (!freqChart) return;
+      const freqLabels = freqChart.data.labels;
+      const magX = freqChart.data.datasets[0].data;
+      const magY = freqChart.data.datasets[1].data;
+      const magZ = freqChart.data.datasets[2].data;
+      let csvRows = [];
+      csvRows.push("sep=;");
+      csvRows.push("Frecuencia;Amplitud_X;Amplitud_Y;Amplitud_Z");
+      for (let i = 0; i < freqLabels.length; i++) {
+        let fStr = freqLabels[i].replace('.', ',');
+        let xStr = magX[i].toString().replace('.', ',');
+        let yStr = magY[i].toString().replace('.', ',');
+        let zStr = magZ[i].toString().replace('.', ',');
+        csvRows.push(`${fStr};${xStr};${yStr};${zStr}`);
+      }
+      const csvContent = csvRows.join("\n");
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `freq_data_${new Date().toISOString().slice(0,19)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setStatusMessage("📈 Datos de frecuencia exportados a CSV", "#66fcf1");
+    }
+
+    // ========== EXPORTAR AMBOS ARCHIVOS (TIEMPO + FRECUENCIA) ==========
+    function exportBoth() {
+      exportTimeData();
+      exportFreqData();
     }
 
     // ========== MQTT ==========
@@ -655,7 +720,7 @@
       setStatusMessage("Error de conexión 🔴", "#ff6b6b");
     });
 
-    // ========== FUNCIONES FFT (con interpolación parabólica) ==========
+    // ========== FUNCIONES FFT ==========
     function performFFT(real, imag) {
         let n = real.length;
         if (n <= 1) return;
@@ -692,27 +757,28 @@
         }
     }
 
-    function getFFTMagnitudes(data) {
-        const N = data.length;
-        let sum = 0, sumSquares = 0;
-        for(let i=0; i<N; i++) sum += data[i];
-        let mean = sum / N;
-        for(let i=0; i<N; i++) {
+    function getFFTMagnitudesWithPadding(data, originalSize, paddedSize) {
+        let paddedReal = new Float64Array(paddedSize);
+        let paddedImag = new Float64Array(paddedSize);
+        for (let i = 0; i < originalSize; i++) paddedReal[i] = data[i];
+        let sum = 0;
+        for (let i = 0; i < originalSize; i++) sum += paddedReal[i];
+        let mean = sum / originalSize;
+        for (let i = 0; i < originalSize; i++) paddedReal[i] -= mean;
+        for (let i = 0; i < originalSize; i++) {
+            let hanning = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (originalSize - 1)));
+            paddedReal[i] *= hanning;
+        }
+        let sumSq = 0;
+        for (let i = 0; i < originalSize; i++) {
             let centered = data[i] - mean;
-            sumSquares += (centered * centered);
+            sumSq += centered * centered;
         }
-        let rms = Math.sqrt(sumSquares / N);
-        let real = new Float64Array(N);
-        let imag = new Float64Array(N);
-        for(let i=0; i<N; i++) {
-            let hanning = 0.5 * (1 - Math.cos((2*Math.PI*i)/(N-1)));
-            real[i] = (data[i]-mean) * hanning;
-            imag[i] = 0;
-        }
-        performFFT(real, imag);
+        let rms = Math.sqrt(sumSq / originalSize);
+        performFFT(paddedReal, paddedImag);
         let magnitudes = [];
-        for(let k=0; k<N/2; k++) {
-            magnitudes.push(Math.sqrt(real[k]*real[k] + imag[k]*imag[k]));
+        for (let k = 0; k < paddedSize / 2; k++) {
+            magnitudes.push(Math.hypot(paddedReal[k], paddedImag[k]));
         }
         return { magnitudes, rms };
     }
@@ -732,19 +798,19 @@
         return (interpolatedIndex * fs) / N;
     }
 
-    function calculateDominantFrequency(magnitudes, rms, fs, N) {
+    function calculateDominantFrequency(magnitudes, rms, fs, N_padded) {
         if (rms < RMS_NOISE_THRESHOLD) return 0.0;
         let maxMagnitude = 0;
         let dominantIndex = 0;
         for(let k = 1; k < magnitudes.length; k++) {
-            let freq = (k * fs) / N;
+            let freq = (k * fs) / N_padded;
             if(freq >= 1.0 && freq <= 12.0 && magnitudes[k] > maxMagnitude) {
                 maxMagnitude = magnitudes[k];
                 dominantIndex = k;
             }
         }
         if (maxMagnitude < NOISE_THRESHOLD) return 0.0;
-        let preciseFreq = parabolicInterpolation(magnitudes, dominantIndex, fs, N);
+        let preciseFreq = parabolicInterpolation(magnitudes, dominantIndex, fs, N_padded);
         preciseFreq = Math.min(12.0, Math.max(1.0, preciseFreq));
         return preciseFreq;
     }
@@ -753,7 +819,7 @@
     Chart.defaults.animation = false;
     
     const ctx = document.getElementById("grafico").getContext("2d");
-    const chart = new Chart(ctx, {
+    chart = new Chart(ctx, {
       type: "line",
       data: {
         labels: Array(250).fill(''),
@@ -764,34 +830,35 @@
         ],
       },
       options: {
-        responsive:true,
-        plugins:{ legend:{ labels:{ color:'white' } } },
-        scales:{
-          y:{ grid:{ color:'#333' }, ticks:{ color:'#ccc' }, min:-20, max:20 },
-          x:{ display:false }
+        responsive: true,
+        plugins: { legend: { labels: { color: 'white' } } },
+        scales: {
+          y: { title: { display: true, text: 'Aceleración (m/s²)', color: '#ccc' }, grid: { color: '#333' }, ticks: { color: '#ccc' }, min: -20, max: 20 },
+          x: { title: { display: true, text: 'Tiempo (s)', color: '#ccc' }, ticks: { color: '#ccc' }, display: true }
         }
-      },
+      }
     });
 
+    const freqLabels = Array(FFT_PADDED_SIZE/2).fill(0).map((_, i)=>((i*sampleRate)/FFT_PADDED_SIZE).toFixed(1));
     const ctxFreq = document.getElementById("graficoFrecuencia").getContext("2d");
-    const freqChart = new Chart(ctxFreq, {
+    freqChart = new Chart(ctxFreq, {
       type: "bar",
       data: {
-        labels: Array(BUFFER_SIZE/2).fill(0).map((_,i)=>((i*sampleRate)/BUFFER_SIZE).toFixed(1)),
+        labels: freqLabels,
         datasets: [
-          { label:"Espectro X", backgroundColor:"rgba(255,107,107,0.5)", data:Array(BUFFER_SIZE/2).fill(0) },
-          { label:"Espectro Y", backgroundColor:"rgba(78,205,196,0.5)", data:Array(BUFFER_SIZE/2).fill(0) },
-          { label:"Espectro Z", backgroundColor:"rgba(255,230,109,0.5)", data:Array(BUFFER_SIZE/2).fill(0) },
+          { label:"Espectro X", backgroundColor:"rgba(255,107,107,0.5)", data:Array(FFT_PADDED_SIZE/2).fill(0) },
+          { label:"Espectro Y", backgroundColor:"rgba(78,205,196,0.5)", data:Array(FFT_PADDED_SIZE/2).fill(0) },
+          { label:"Espectro Z", backgroundColor:"rgba(255,230,109,0.5)", data:Array(FFT_PADDED_SIZE/2).fill(0) },
         ],
       },
       options: {
-        responsive:true,
-        plugins:{ legend:{ labels:{ color:'white' } } },
-        scales:{
-          y:{ beginAtZero:true, grid:{ color:'#333' }, ticks:{ color:'#ccc' }, max:50 },
-          x:{ title:{ display:true, text:'Frecuencia (Hz)', color:'#ccc' }, ticks:{ color:'#ccc' } }
+        responsive: true,
+        plugins: { legend: { labels: { color: 'white' } } },
+        scales: {
+          y: { title: { display: true, text: 'Amplitud', color: '#ccc' }, beginAtZero: true, grid: { color: '#333' }, ticks: { color: '#ccc' }, max: 50 },
+          x: { title: { display: true, text: 'Frecuencia (Hz)', color: '#ccc' }, ticks: { color: '#ccc' } }
         }
-      },
+      }
     });
 
     // ========== MODELO 3D ==========
@@ -826,7 +893,7 @@
     }
     animate3D();
 
-    // ========== RECEPCIÓN DE DATOS (incluye frecuencias en cada muestra) ==========
+    // ========== PROCESAMIENTO DE DATOS ==========
     client.on("message", (topic, msg) => {
       try {
         const payload = JSON.parse(msg.toString());
@@ -838,7 +905,6 @@
           console.log("Nueva sesión iniciada");
           setStatusMessage("🟢 Sesión activa - Recibiendo datos", "#66fcf1");
         }
-        // Ahora incluimos las frecuencias actuales en el objeto de sesión
         sessionData.push({ 
           x: payload.x, 
           y: payload.y, 
@@ -873,20 +939,19 @@
         }
 
         if (bufferX.length === BUFFER_SIZE) {
-          const resX = getFFTMagnitudes(bufferX);
-          const resY = getFFTMagnitudes(bufferY);
-          const resZ = getFFTMagnitudes(bufferZ);
+          const resX = getFFTMagnitudesWithPadding(bufferX, BUFFER_SIZE, FFT_PADDED_SIZE);
+          const resY = getFFTMagnitudesWithPadding(bufferY, BUFFER_SIZE, FFT_PADDED_SIZE);
+          const resZ = getFFTMagnitudesWithPadding(bufferZ, BUFFER_SIZE, FFT_PADDED_SIZE);
 
           freqChart.data.datasets[0].data = resX.magnitudes;
           freqChart.data.datasets[1].data = resY.magnitudes;
           freqChart.data.datasets[2].data = resZ.magnitudes;
           freqChart.update('none');
 
-          const fX = calculateDominantFrequency(resX.magnitudes, resX.rms, sampleRate, BUFFER_SIZE);
-          const fY = calculateDominantFrequency(resY.magnitudes, resY.rms, sampleRate, BUFFER_SIZE);
-          const fZ = calculateDominantFrequency(resZ.magnitudes, resZ.rms, sampleRate, BUFFER_SIZE);
+          const fX = calculateDominantFrequency(resX.magnitudes, resX.rms, sampleRate, FFT_PADDED_SIZE);
+          const fY = calculateDominantFrequency(resY.magnitudes, resY.rms, sampleRate, FFT_PADDED_SIZE);
+          const fZ = calculateDominantFrequency(resZ.magnitudes, resZ.rms, sampleRate, FFT_PADDED_SIZE);
 
-          // Actualizamos las frecuencias globales
           currentFreqX = fX;
           currentFreqY = fY;
           currentFreqZ = fZ;
@@ -914,7 +979,6 @@
                       extensionSent = true;
                       const freqMax = Math.max(fX, fY, fZ);
                       mostrarAlertaParkinson(freqMax);
-                      
                       if (resetExtensionTimer) clearTimeout(resetExtensionTimer);
                       resetExtensionTimer = setTimeout(() => {
                           extensionSent = false;
