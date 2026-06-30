@@ -642,17 +642,30 @@
     let chart, freqChart;
 
     // ========== HISTORIAL DE SESIONES LARGAS ==========
-    let historialSesiones = []; // cada elemento: { sesion, identificacion (null|true|false), datos (array) }
+    let historialSesiones = []; // cada elemento: { sesion, identificacion, datos, espectro }
     let contadorSesion = 0;
 
     function agregarRegistroHistorial(estado, datos) {
       // Si estado es false, lo convertimos a null para que aparezca como "No definido"
       const estadoFinal = (estado === true) ? true : null;
       contadorSesion++;
+      
+      // Capturar el espectro actual (última FFT calculada)
+      const frecuencias = freqChart ? freqChart.data.labels.slice() : [];
+      const magX = freqChart ? freqChart.data.datasets[0].data.slice() : [];
+      const magY = freqChart ? freqChart.data.datasets[1].data.slice() : [];
+      const magZ = freqChart ? freqChart.data.datasets[2].data.slice() : [];
+      
       historialSesiones.push({
         sesion: contadorSesion,
         identificacion: estadoFinal,
-        datos: datos.slice() // copia de los datos de la sesión
+        datos: datos.slice(), // copia de los datos de la sesión
+        espectro: {
+          frecuencias: frecuencias,
+          magnitudesX: magX,
+          magnitudesY: magY,
+          magnitudesZ: magZ
+        }
       });
       renderizarHistorial();
     }
@@ -679,17 +692,34 @@
       }
       const estado = item.identificacion; // null, true o false
       const datos = item.datos;
+      const espectro = item.espectro;
       
       const formatNum = (num) => {
         if (isNaN(num) || num === undefined || num === null) return "0,0";
         return num.toString().replace('.', ',');
       };
       
-      let csvString = "sep=;\r\nTimestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
+      // ===== SECCIÓN DE DATOS DE TIEMPO =====
+      let csvString = "sep=;\r\n";
+      csvString += "=== DATOS DE TIEMPO ===\r\n";
+      csvString += "Timestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
       datos.forEach(p => {
         const estadoStr = estado === true ? "VERDADERO" : (estado === false ? "FALSO" : "NO_DEFINIDO");
         csvString += `${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)};${estadoStr}\r\n`;
       });
+      
+      // ===== SECCIÓN DEL ESPECTRO DE FRECUENCIA =====
+      if (espectro && espectro.frecuencias && espectro.frecuencias.length > 0) {
+        csvString += "\r\n=== ESPECTRO DE FRECUENCIA ===\r\n";
+        csvString += "Frecuencia;Amplitud_X;Amplitud_Y;Amplitud_Z\r\n";
+        for (let i = 0; i < espectro.frecuencias.length; i++) {
+          let fStr = espectro.frecuencias[i].replace('.', ',');
+          let xStr = formatNum(espectro.magnitudesX[i]);
+          let yStr = formatNum(espectro.magnitudesY[i]);
+          let zStr = formatNum(espectro.magnitudesZ[i]);
+          csvString += `${fStr};${xStr};${yStr};${zStr}\r\n`;
+        }
+      }
       
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
       const blob = new Blob([bom, csvString], { type: 'text/csv;charset=utf-8' });
@@ -879,8 +909,6 @@
       if(client.connected) {
         // === FINALIZAR SESIÓN ACTUAL (si existe) ===
         if (sessionActive && sessionData.length > 0) {
-          // Guardar registro en el historial con el estado actual de identificación
-          // Si identificacionManual es false, pasamos null para que aparezca como "No definido"
           agregarRegistroHistorial(identificacionManual ? true : null, sessionData);
         }
         
@@ -903,10 +931,9 @@
         parkinsonConfirmed = false;
         parkinsonAlert.style.display = "none";
         btnManual.classList.remove("btn-manual-large");
-        
-        // === RESETEAR EL BOTÓN DE IDENTIFICACIÓN MANUAL ===
+        // Resetear identificación manual
         identificacionManual = false;
-        actualizarBotonManual();  // <--- NUEVO: actualiza visualmente el botón
+        actualizarBotonManual();
         
         setTimeout(() => {
           if (client.connected) {
@@ -929,15 +956,36 @@
       };
 
       let csvString = "sep=;\r\n";
-      csvString += "Sesion;Timestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
-
-      historialSesiones.forEach(item => {
-        const estado = item.identificacion; // null, true o false
+      
+      historialSesiones.forEach((item, idx) => {
+        const estado = item.identificacion;
         const datos = item.datos;
+        const espectro = item.espectro;
+        
+        // Encabezado de sesión
+        csvString += `\r\n=== SESIÓN ${item.sesion} ===\r\n`;
+        csvString += `Identificación: ${estado === true ? "VERDADERO" : (estado === false ? "FALSO" : "NO_DEFINIDO")}\r\n`;
+        
+        // Datos de tiempo
+        csvString += "--- DATOS DE TIEMPO ---\r\n";
+        csvString += "Timestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z\r\n";
         datos.forEach(p => {
-          const estadoStr = estado === true ? "VERDADERO" : (estado === false ? "FALSO" : "NO_DEFINIDO");
-          csvString += `${item.sesion};${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)};${estadoStr}\r\n`;
+          csvString += `${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)}\r\n`;
         });
+        
+        // Espectro de frecuencia
+        if (espectro && espectro.frecuencias && espectro.frecuencias.length > 0) {
+          csvString += "--- ESPECTRO DE FRECUENCIA ---\r\n";
+          csvString += "Frecuencia;Amplitud_X;Amplitud_Y;Amplitud_Z\r\n";
+          for (let i = 0; i < espectro.frecuencias.length; i++) {
+            let fStr = espectro.frecuencias[i].replace('.', ',');
+            let xStr = formatNum(espectro.magnitudesX[i]);
+            let yStr = formatNum(espectro.magnitudesY[i]);
+            let zStr = formatNum(espectro.magnitudesZ[i]);
+            csvString += `${fStr};${xStr};${yStr};${zStr}\r\n`;
+          }
+        }
+        csvString += "\r\n"; // separador entre sesiones
       });
 
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
@@ -1315,6 +1363,14 @@
                           // === FINALIZA EL PERÍODO LARGO DE MUESTREO ===
                           // Guardamos el registro con el estado actual (si no se presionó el botón, será null)
                           agregarRegistroHistorial(identificacionManual ? true : null, sessionData);
+                          
+                          // Reseteamos el botón de identificación manual
+                          identificacionManual = false;
+                          actualizarBotonManual();
+                          // Limpiamos la alerta y el botón grande
+                          parkinsonConfirmed = false;
+                          parkinsonAlert.style.display = "none";
+                          btnManual.classList.remove("btn-manual-large");
                           
                           extensionSent = false;
                           isTremorActive = false;
