@@ -81,6 +81,68 @@
       to { transform: translateY(0); opacity: 1; }
     }
     
+    /* === CONTENEDOR ALERTA + BOTÓN === */
+    #alertContainer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+    
+    /* === BOTÓN DE IDENTIFICACIÓN MANUAL === */
+    .btn-manual {
+      background-color: #9b59b6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.5s ease;
+      font-size: 1rem;
+      width: auto;
+      display: inline-block;
+      margin: 5px auto;
+      box-shadow: 0 0 8px rgba(155, 89, 182, 0.3);
+      position: relative;
+    }
+    .btn-manual.true {
+      background-color: #2ecc71;
+      box-shadow: 0 0 8px #2ecc71;
+    }
+    .btn-manual-large {
+      width: 90%;
+      max-width: 800px;
+      padding: 18px;
+      margin: 10px auto 20px;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      display: block;
+      box-shadow: 0 0 20px rgba(155, 89, 182, 0.4);
+    }
+    
+    .close-manual {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      font-size: 1.2rem;
+      cursor: pointer;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.3s;
+    }
+    .close-manual:hover {
+      background: rgba(255,255,255,0.4);
+    }
+    
     /* === PANEL DE PACIENTE === */
     .patient-panel {
       background: #1f2833;
@@ -207,14 +269,6 @@
       background-color: #b388ff;
       color: #1a1a1a;
     }
-    .btn-manual {
-      background-color: #9b59b6;
-    }
-    .btn-manual.true {
-      background-color: #2ecc71;
-      box-shadow: 0 0 8px #2ecc71;
-    }
-    /* Botones de exportación */
     .export-btn {
       background-color: #2c3e50;
       margin-top: 8px;
@@ -248,14 +302,104 @@
     .chart-container {
       position: relative;
     }
+
+    /* ===== ESTILOS PARA LA TABLA DE HISTORIAL ===== */
+    #historialContainer {
+      margin-top: 40px;
+      padding: 20px;
+      background: #1f2833;
+      border-radius: 12px;
+      border: 1px solid #45a29e;
+      width: 90%;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+      overflow-x: auto;
+    }
+    #historialContainer h2 {
+      color: #66fcf1;
+      text-align: center;
+      margin-top: 0;
+    }
+    .historial-tabla {
+      width: 100%;
+      border-collapse: collapse;
+      color: #c5c6c7;
+    }
+    .historial-tabla th {
+      background: #0b0c10;
+      color: #66fcf1;
+      padding: 10px;
+      border: 1px solid #45a29e;
+    }
+    .historial-tabla td {
+      padding: 8px;
+      border: 1px solid #45a29e;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .ident-si { color: #2ecc71; font-weight: bold; }
+    .ident-no { color: #ff6b6b; font-weight: bold; }
+    .ident-null { color: #f1c40f; font-weight: bold; }
+
+    /* Botones de estado en la tabla */
+    .btn-historial {
+      border: none;
+      padding: 4px 10px;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: bold;
+      transition: 0.2s;
+      white-space: nowrap;
+    }
+    .btn-historial.null {
+      background-color: #6c757d;
+    }
+    .btn-historial.null:hover {
+      background-color: #5a6268;
+    }
+    .btn-historial.true {
+      background-color: #2ecc71;
+    }
+    .btn-historial.true:hover {
+      background-color: #27ae60;
+    }
+    .btn-historial.false {
+      background-color: #ff6b6b;
+    }
+    .btn-historial.false:hover {
+      background-color: #e74c3c;
+    }
+
+    .btn-descargar {
+      background-color: #3498db;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+    .btn-descargar:hover {
+      background-color: #2980b9;
+    }
   </style>
 </head>
 <body>
-  <!-- ALERTA DE PARKINSON -->
-  <div id="parkinsonAlert" class="parkinson-alert">
-    <span class="icon">⚠️</span>
-    <span id="alertMessage">Posible episodio de temblor parkinsoniano detectado</span>
-    <button class="close-alert" onclick="cerrarAlerta()" title="Cerrar alerta">✕</button>
+  <!-- CONTENEDOR ALERTA + BOTÓN DE IDENTIFICACIÓN -->
+  <div id="alertContainer">
+    <!-- ALERTA DE PARKINSON -->
+    <div id="parkinsonAlert" class="parkinson-alert">
+      <span class="icon">⚠️</span>
+      <span id="alertMessage">Posible episodio de temblor parkinsoniano detectado</span>
+      <button class="close-alert" onclick="cerrarAlerta()" title="Cerrar alerta">✕</button>
+    </div>
+    <!-- BOTÓN DE IDENTIFICACIÓN MANUAL (debajo de la alerta) -->
+    <button id="btnManualIdent" class="btn-manual" onclick="toggleIdentificacionManual(event)">🔍 Identificar temblor manualmente</button>
   </div>
 
   <h1>Monitor de Temblores</h1>
@@ -278,7 +422,6 @@
     <button onclick="guardarDatosClinicos()">📥 Guardar Datos (CSV)</button>
     <button class="btn-firebase" onclick="subirAFirebase()" id="btnFirebase" disabled>☁️ Subir a Firebase</button>
     <button class="btn-reset3d" onclick="resetearFigura3D()" title="Restablecer posición horizontal">↺ Reset 3D</button>
-    <button id="btnManualIdent" class="btn-manual" onclick="toggleIdentificacionManual()">🔍 Identificar temblor manualmente</button>
     <button class="export-btn" onclick="exportBoth()">📁 Exportar ambos (tiempo + frecuencia)</button>
   </div>
 
@@ -315,6 +458,24 @@
         </div>
     </div>
     <div id="caja3d2" style="width: 400px; height: 500px;"></div>
+  </div>
+
+  <!-- ===== TABLA DE HISTORIAL AL FINAL ===== -->
+  <div id="historialContainer">
+    <h2>📋 Historial de Sesiones Largas</h2>
+    <table class="historial-tabla" id="historialTabla">
+      <thead>
+        <tr>
+          <th>Sesión</th>
+          <th>Identificar Temblor</th>
+          <th>Acción</th>
+          <th>Descargar</th>
+        </tr>
+      </thead>
+      <tbody id="historialBody">
+        <!-- Las filas se generan dinámicamente -->
+      </tbody>
+    </table>
   </div>
 
   <script>
@@ -452,7 +613,7 @@
     const parkinsonAlert = document.getElementById("parkinsonAlert");
     const alertMessage = document.getElementById("alertMessage");
 
-    // ========== PARÁMETROS FFT (128 muestras + zero padding a 256) ==========
+    // ========== PARÁMETROS FFT ==========
     const BUFFER_SIZE = 128;
     const FFT_PADDED_SIZE = 256;
     let bufferX = [], bufferY = [], bufferZ = [];
@@ -480,22 +641,148 @@
 
     let chart, freqChart;
 
-    function setStatusMessage(text, color = "#c5c6c7") {
-      elEstado.textContent = text;
-      elEstado.style.color = color;
-      console.log("[ESTADO]", text);
+    // ========== HISTORIAL DE SESIONES LARGAS ==========
+    let historialSesiones = []; // cada elemento: { sesion, identificacion (null|true|false), datos (array) }
+    let contadorSesion = 0;
+
+    function agregarRegistroHistorial(estado, datos) {
+      // Si estado es false, lo convertimos a null para que aparezca como "No definido"
+      const estadoFinal = (estado === true) ? true : null;
+      contadorSesion++;
+      historialSesiones.push({
+        sesion: contadorSesion,
+        identificacion: estadoFinal,
+        datos: datos.slice() // copia de los datos de la sesión
+      });
+      renderizarHistorial();
     }
 
-    // ========== TOGGLE IDENTIFICACIÓN MANUAL ==========
-    function toggleIdentificacionManual() {
-      identificacionManual = !identificacionManual;
+    function cambiarEstadoHistorial(index) {
+      if (index < 0 || index >= historialSesiones.length) return;
+      const actual = historialSesiones[index].identificacion;
+      // Ciclo: null -> true -> false -> true -> false ...
+      if (actual === null) {
+        historialSesiones[index].identificacion = true;
+      } else if (actual === true) {
+        historialSesiones[index].identificacion = false;
+      } else if (actual === false) {
+        historialSesiones[index].identificacion = true;
+      }
+      renderizarHistorial();
+    }
+
+    function descargarSesion(index) {
+      const item = historialSesiones[index];
+      if (!item || !item.datos || item.datos.length === 0) {
+        alert("No hay datos para esta sesión.");
+        return;
+      }
+      const estado = item.identificacion; // null, true o false
+      const datos = item.datos;
+      
+      const formatNum = (num) => {
+        if (isNaN(num) || num === undefined || num === null) return "0,0";
+        return num.toString().replace('.', ',');
+      };
+      
+      let csvString = "sep=;\r\nTimestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
+      datos.forEach(p => {
+        const estadoStr = estado === true ? "VERDADERO" : (estado === false ? "FALSO" : "NO_DEFINIDO");
+        csvString += `${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)};${estadoStr}\r\n`;
+      });
+      
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+      const blob = new Blob([bom, csvString], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Sesion_${item.sesion}_${new Date().getTime()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setStatusMessage(`📥 Sesión ${item.sesion} descargada`, "#66fcf1");
+    }
+
+    function renderizarHistorial() {
+      const tbody = document.getElementById("historialBody");
+      tbody.innerHTML = "";
+      historialSesiones.forEach((item, idx) => {
+        const tr = document.createElement("tr");
+        // Columna sesión
+        const tdSesion = document.createElement("td");
+        tdSesion.textContent = item.sesion;
+        tr.appendChild(tdSesion);
+        // Columna identificación
+        const tdIdent = document.createElement("td");
+        if (item.identificacion === true) {
+          tdIdent.innerHTML = '<span class="ident-si">✅ Sí</span>';
+        } else if (item.identificacion === false) {
+          tdIdent.innerHTML = '<span class="ident-no">❌ No</span>';
+        } else {
+          tdIdent.innerHTML = '<span class="ident-null">❓ No definido</span>';
+        }
+        tr.appendChild(tdIdent);
+        // Columna acción (botón de cambiar estado)
+        const tdAccion = document.createElement("td");
+        const btnEstado = document.createElement("button");
+        btnEstado.className = "btn-historial";
+        if (item.identificacion === null) {
+          btnEstado.textContent = "[Sin identificar]";
+          btnEstado.classList.add("null");
+        } else if (item.identificacion === true) {
+          btnEstado.textContent = "Agregar notificación";
+          btnEstado.classList.add("true");
+        } else { // false
+          btnEstado.textContent = "Remover identificación";
+          btnEstado.classList.add("false");
+        }
+        btnEstado.onclick = function() { cambiarEstadoHistorial(idx); };
+        tdAccion.appendChild(btnEstado);
+        tr.appendChild(tdAccion);
+        // Columna descargar
+        const tdDescargar = document.createElement("td");
+        const btnDescargar = document.createElement("button");
+        btnDescargar.textContent = "📥 CSV";
+        btnDescargar.className = "btn-descargar";
+        btnDescargar.onclick = function() { descargarSesion(idx); };
+        tdDescargar.appendChild(btnDescargar);
+        tr.appendChild(tdDescargar);
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ========== ACTUALIZAR BOTÓN MANUAL ==========
+    function actualizarBotonManual() {
       if (identificacionManual) {
         btnManual.classList.add("true");
-        btnManual.innerHTML = "✅ Sí fue ataque (marcado)";
-        setStatusMessage("🧠 Marcado como ataque real por el usuario", "#2ecc71");
+        btnManual.innerHTML = `✅ Sí fue ataque (marcado) <span class="close-manual" onclick="desmarcarManual(event)">✕</span>`;
       } else {
         btnManual.classList.remove("true");
         btnManual.innerHTML = "🔍 Identificar temblor manualmente";
+      }
+    }
+
+    // ========== TOGGLE IDENTIFICACIÓN MANUAL ==========
+    function toggleIdentificacionManual(event) {
+      if (event && event.target.classList.contains('close-manual')) return;
+      
+      identificacionManual = !identificacionManual;
+      actualizarBotonManual();
+      
+      if (identificacionManual) {
+        setStatusMessage("🧠 Marcado como ataque real por el usuario", "#2ecc71");
+      } else {
+        setStatusMessage("🔄 Identificación manual reiniciada", "#c5c6c7");
+      }
+    }
+
+    // ========== DESMARCAR MANUAL (al hacer clic en la X) ==========
+    function desmarcarManual(event) {
+      event.stopPropagation();
+      if (identificacionManual) {
+        identificacionManual = false;
+        actualizarBotonManual();
         setStatusMessage("🔄 Identificación manual reiniciada", "#c5c6c7");
       }
     }
@@ -503,6 +790,7 @@
     function cerrarAlerta() {
       parkinsonAlert.style.display = "none";
       parkinsonConfirmed = false;
+      btnManual.classList.remove("btn-manual-large");
     }
 
     function mostrarAlertaParkinson(frecuenciaDominante) {
@@ -510,6 +798,7 @@
         parkinsonConfirmed = true;
         alertMessage.textContent = `⚠️ ALERTA: Posible temblor parkinsoniano detectado (${frecuenciaDominante.toFixed(1)} Hz). Se recomienda consultar al especialista.`;
         parkinsonAlert.style.display = "block";
+        btnManual.classList.add("btn-manual-large");
         if (firebaseReady && currentPatientId && sessionData.length > 0) {
           guardarEnFirebaseAutomatico();
         }
@@ -588,12 +877,33 @@
 
     function detenerCaptura() {
       if(client.connected) {
+        // === FINALIZAR SESIÓN ACTUAL (si existe) ===
+        if (sessionActive && sessionData.length > 0) {
+          // Guardar registro en el historial con el estado actual de identificación
+          // Si identificacionManual es false, pasamos null para que aparezca como "No definido"
+          agregarRegistroHistorial(identificacionManual ? true : null, sessionData);
+        }
+        
         client.publish(topicControl, "STOP");
         setStatusMessage("🛑 Captura detenida. ESP32 en espera...", "#ff6b6b");
         isTremorActive = false;
         extensionSent = false;
         sessionActive = false;
-        if (resetExtensionTimer) clearTimeout(resetExtensionTimer);
+        if (resetExtensionTimer) {
+          clearTimeout(resetExtensionTimer);
+          resetExtensionTimer = null;
+        }
+        // Limpiar datos de sesión
+        sessionData = [];
+        // Limpiar buffers
+        bufferX = [];
+        bufferY = [];
+        bufferZ = [];
+        // Reiniciar alerta
+        parkinsonConfirmed = false;
+        parkinsonAlert.style.display = "none";
+        btnManual.classList.remove("btn-manual-large");
+        
         setTimeout(() => {
           if (client.connected) {
             setStatusMessage("✅ Conectado - En espera de datos", "#66fcf1");
@@ -693,7 +1003,7 @@
       setStatusMessage("📈 Datos de frecuencia exportados a CSV", "#66fcf1");
     }
 
-    // ========== EXPORTAR AMBOS ARCHIVOS (TIEMPO + FRECUENCIA) ==========
+    // ========== EXPORTAR AMBOS ARCHIVOS ==========
     function exportBoth() {
       exportTimeData();
       exportFreqData();
@@ -707,6 +1017,7 @@
       sessionData = [];
       parkinsonConfirmed = false;
       parkinsonAlert.style.display = "none";
+      btnManual.classList.remove("btn-manual-large");
       isTremorActive = false;
       extensionSent = false;
       identificacionManual = false;
@@ -719,6 +1030,12 @@
       console.error("Fallo de conexión:", err);
       setStatusMessage("Error de conexión 🔴", "#ff6b6b");
     });
+
+    function setStatusMessage(text, color = "#c5c6c7") {
+      elEstado.textContent = text;
+      elEstado.style.color = color;
+      console.log("[ESTADO]", text);
+    }
 
     // ========== FUNCIONES FFT ==========
     function performFFT(real, imag) {
@@ -981,6 +1298,10 @@
                       mostrarAlertaParkinson(freqMax);
                       if (resetExtensionTimer) clearTimeout(resetExtensionTimer);
                       resetExtensionTimer = setTimeout(() => {
+                          // === FINALIZA EL PERÍODO LARGO DE MUESTREO ===
+                          // Guardamos el registro con el estado actual (si no se presionó el botón, será null)
+                          agregarRegistroHistorial(identificacionManual ? true : null, sessionData);
+                          
                           extensionSent = false;
                           isTremorActive = false;
                           setStatusMessage("🟢 Ventana extendida finalizada - Monitor activo", "#66fcf1");
