@@ -904,6 +904,10 @@
         parkinsonAlert.style.display = "none";
         btnManual.classList.remove("btn-manual-large");
         
+        // === RESETEAR EL BOTÓN DE IDENTIFICACIÓN MANUAL ===
+        identificacionManual = false;
+        actualizarBotonManual();  // <--- NUEVO: actualiza visualmente el botón
+        
         setTimeout(() => {
           if (client.connected) {
             setStatusMessage("✅ Conectado - En espera de datos", "#66fcf1");
@@ -912,31 +916,41 @@
       }
     }
 
-    // ========== GUARDAR TODOS LOS DATOS DE LA SESIÓN ==========
+    // ========== GUARDAR TODOS LOS DATOS DEL HISTORIAL (CSV) ==========
     function guardarDatosClinicos() {
-      if (sessionData.length === 0) {
-        alert("No hay datos de sesión disponibles. Espera a que se reciban datos.");
+      if (historialSesiones.length === 0) {
+        alert("No hay historial de sesiones para guardar.");
         return;
       }
+
       const formatNum = (num) => {
         if (isNaN(num) || num === undefined || num === null) return "0,0";
         return num.toString().replace('.', ',');
       };
-      let csvString = "sep=;\r\nTimestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
-      sessionData.forEach(p => {
-        csvString += `${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)};${identificacionManual ? "VERDADERO" : "FALSO"}\r\n`;
+
+      let csvString = "sep=;\r\n";
+      csvString += "Sesion;Timestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
+
+      historialSesiones.forEach(item => {
+        const estado = item.identificacion; // null, true o false
+        const datos = item.datos;
+        datos.forEach(p => {
+          const estadoStr = estado === true ? "VERDADERO" : (estado === false ? "FALSO" : "NO_DEFINIDO");
+          csvString += `${item.sesion};${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)};${estadoStr}\r\n`;
+        });
       });
+
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
       const blob = new Blob([bom, csvString], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `Parkinson_Data_${new Date().getTime()}.csv`);
+      link.setAttribute("download", `Historial_Completo_${new Date().getTime()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      setStatusMessage("📥 Datos guardados correctamente.", "#66fcf1");
+      setStatusMessage("📥 Historial completo guardado.", "#66fcf1");
     }
 
     // ========== EXPORTAR DATOS DEL GRÁFICO DE TIEMPO ==========
