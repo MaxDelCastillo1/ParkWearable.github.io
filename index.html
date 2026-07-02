@@ -235,47 +235,44 @@
       align-items: center;
     }
 
-    .window-control {
+    /* Estilos para los controles de ventana corta y larga */
+    .window-control-group {
       display: flex;
-      align-items: center;
+      flex-wrap: wrap;
       gap: 8px;
+      align-items: center;
       background: #1f2833;
       padding: 6px 12px;
       border-radius: 6px;
       border: 1px solid #45a29e;
     }
-    .window-control label {
+    .window-control-group label {
       color: #c5c6c7;
       font-weight: bold;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
-    .window-control input {
-      width: 60px;
+    .window-control-group input {
+      width: 50px;
       padding: 4px 6px;
       background: #0b0c10;
       border: 1px solid #45a29e;
       color: white;
       border-radius: 4px;
       text-align: center;
+      font-size: 0.85rem;
     }
-    .window-control select {
-      padding: 4px 6px;
-      background: #0b0c10;
-      border: 1px solid #45a29e;
-      color: white;
-      border-radius: 4px;
-    }
-    .window-control button {
+    .window-control-group button {
       background-color: #45a29e;
       color: white;
       border: none;
-      padding: 4px 12px;
+      padding: 4px 10px;
       border-radius: 4px;
       cursor: pointer;
       font-weight: bold;
       transition: 0.3s;
+      font-size: 0.8rem;
     }
-    .window-control button:hover {
+    .window-control-group button:hover {
       background-color: #66fcf1;
       color: #0b0c10;
     }
@@ -478,7 +475,6 @@
       height: 500px;
       display: block;
     }
-    /* Botón de descarga del waterfall */
     .btn-descargar-waterfall {
       background-color: #2c3e50;
       color: white;
@@ -530,21 +526,24 @@
     <button class="btn-firebase" onclick="subirAFirebase()" id="btnFirebase" disabled>☁️ Subir a Firebase</button>
     <button class="btn-reset3d" onclick="resetearFigura3D()" title="Restablecer posición horizontal">↺ Reset 3D</button>
     <button class="export-btn" onclick="exportBoth()">📁 Exportar ambos (tiempo + frecuencia)</button>
+
     <!-- Selector de eje para el Waterfall -->
     <div class="axis-selector">
       <button id="btnAxisX" class="active" onclick="setAxis('X')">Eje X</button>
       <button id="btnAxisY" onclick="setAxis('Y')">Eje Y</button>
       <button id="btnAxisZ" onclick="setAxis('Z')">Eje Z</button>
     </div>
-    <!-- Control de ventana (duración en segundos) -->
-    <div class="window-control">
-      <label>Ventana:</label>
-      <input type="number" id="windowValue" value="20" min="1" step="1" />
-      <select id="windowUnit">
-        <option value="seconds">Segundos</option>
-        <option value="minutes">Minutos</option>
-      </select>
-      <button onclick="aplicarVentana()">Aplicar</button>
+
+    <!-- Controles de ventana corta y larga (en segundos) -->
+    <div class="window-control-group">
+      <label>Corta</label>
+      <input type="number" id="windowShortSec" value="10" min="1" step="1" />
+      <button onclick="aplicarVentanaCorta()">Aplicar</button>
+    </div>
+    <div class="window-control-group">
+      <label>Larga</label>
+      <input type="number" id="windowLongSec" value="40" min="1" step="1" />
+      <button onclick="aplicarVentanaLarga()">Aplicar</button>
     </div>
   </div>
 
@@ -605,7 +604,6 @@
   <div id="waterfallContainer">
     <h3>🌊 Espectro en el Tiempo (Waterfall) – <span id="axisLabel">Eje X</span></h3>
     <div id="waterfallCanvas"></div>
-    <!-- Botón para descargar el waterfall -->
     <button class="btn-descargar-waterfall" onclick="descargarWaterfall()">📷 Descargar Waterfall</button>
   </div>
 
@@ -735,7 +733,8 @@
 
     const topicData = "imu/data";
     const topicControl = "imu/control";
-    const topicWindow = "imu/window";
+    const topicWindowShort = "imu/window_short";
+    const topicWindowLong = "imu/window_long";
     const client = mqtt.connect(broker, options);
 
     const elEstado = document.getElementById("estado");
@@ -1035,38 +1034,37 @@
       }
     }
 
-    // ========== NUEVA FUNCIÓN PARA AJUSTAR VENTANA ==========
-    function aplicarVentana() {
+    // ========== FUNCIONES PARA AJUSTAR VENTANAS (Corta y Larga) ==========
+    function aplicarVentanaCorta() {
       if (!client.connected) {
         alert("No conectado al broker MQTT.");
         return;
       }
-      const valor = parseInt(document.getElementById("windowValue").value);
-      const unidad = document.getElementById("windowUnit").value;
-      if (isNaN(valor) || valor < 1) {
-        alert("Ingresa un número válido (mínimo 1).");
+      const segundos = parseInt(document.getElementById("windowShortSec").value);
+      if (isNaN(segundos) || segundos < 1) {
+        alert("Ingresa un número válido (mínimo 1 segundo).");
         return;
       }
-      let segundos;
-      if (unidad === "seconds") {
-        segundos = valor;
-      } else { // minutos
-        segundos = valor * 60;
+      const muestras = segundos * 50; // 50 muestras por segundo
+      client.publish(topicWindowShort, Math.round(muestras).toString());
+      setStatusMessage(`📤 Ventana corta: ${segundos} s (${Math.round(muestras)} muestras)`, "#66fcf1");
+      console.log(`Publicado en ${topicWindowShort}: ${Math.round(muestras)}`);
+    }
+
+    function aplicarVentanaLarga() {
+      if (!client.connected) {
+        alert("No conectado al broker MQTT.");
+        return;
       }
-      // Calcular muestras (50 por segundo)
+      const segundos = parseInt(document.getElementById("windowLongSec").value);
+      if (isNaN(segundos) || segundos < 1) {
+        alert("Ingresa un número válido (mínimo 1 segundo).");
+        return;
+      }
       const muestras = segundos * 50;
-      // Publicar en el tópico
-      client.publish(topicWindow, Math.round(muestras).toString());
-      setStatusMessage(`📤 Ventana ajustada a ${segundos} segundos (${Math.round(muestras)} muestras)`, "#66fcf1");
-      console.log(`Publicado en ${topicWindow}: ${Math.round(muestras)}`);
-      
-      // Actualizar la duración de la ventana para el Waterfall
-      ventanaSegundos = segundos;
-      // Reiniciar el intervalo del Waterfall
-      reiniciarIntervaloWaterfall();
-      // Reiniciar el historial (para que las nuevas rebanadas se alineen con la nueva duración)
-      resetWaterfallHistory();
-      updateWaterfall();
+      client.publish(topicWindowLong, Math.round(muestras).toString());
+      setStatusMessage(`📤 Ventana larga: ${segundos} s (${Math.round(muestras)} muestras)`, "#66fcf1");
+      console.log(`Publicado en ${topicWindowLong}: ${Math.round(muestras)}`);
     }
 
     // ========== GUARDAR TODOS LOS DATOS DEL HISTORIAL (CSV) ==========
@@ -1397,8 +1395,8 @@
     let wGroup = null;
     const wContainer = document.getElementById('waterfallCanvas');
 
-    // Duración actual de la ventana (segundos)
-    let ventanaSegundos = 20; // por defecto 20 segundos
+    // Duración actual de la ventana (segundos) - se usa para el waterfall, pero ahora se puede ajustar independientemente
+    let ventanaSegundos = 20; // por defecto 20 segundos (usado para el waterfall)
     let waterfallIntervalId = null;
 
     // ========== FUNCIÓN PARA DESCARGAR WATERFALL ==========
@@ -1407,9 +1405,7 @@
         alert("El gráfico Waterfall aún no está listo.");
         return;
       }
-      // Forzar renderizado para asegurar que el canvas esté actualizado
       wRenderer.render(wScene, wCamera);
-      // Obtener la imagen en formato PNG
       const dataURL = wRenderer.domElement.toDataURL('image/png');
       const link = document.createElement('a');
       link.href = dataURL;
@@ -1441,15 +1437,13 @@
       }
     }
 
-    // Reiniciar el intervalo del Waterfall según la duración de la ventana
+    // Reiniciar el intervalo del Waterfall según la duración de la ventana (ventanaSegundos)
     function reiniciarIntervaloWaterfall() {
       if (waterfallIntervalId) {
         clearInterval(waterfallIntervalId);
         waterfallIntervalId = null;
       }
-      // Calcular intervalo en milisegundos
       const intervaloMs = (ventanaSegundos / WATERFALL_HISTORY) * 1000;
-      // Evitar intervalos demasiado cortos (menos de 100 ms) o demasiado largos (más de 10 s)
       const intervalo = Math.min(Math.max(intervaloMs, 100), 10000);
       console.log(`Waterfall: intervalo de ${intervalo} ms (ventana de ${ventanaSegundos} s)`);
       
@@ -1519,7 +1513,7 @@
 
       wRenderer = new THREE.WebGLRenderer({ 
         antialias: true,
-        preserveDrawingBuffer: true  // <-- necesario para capturar imagen
+        preserveDrawingBuffer: true
       });
       wRenderer.setSize(width, height);
       wRenderer.setPixelRatio(window.devicePixelRatio);
