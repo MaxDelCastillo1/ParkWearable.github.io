@@ -232,6 +232,52 @@
       justify-content: center;
       gap: 15px;
       flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .window-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #1f2833;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #45a29e;
+    }
+    .window-control label {
+      color: #c5c6c7;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+    .window-control input {
+      width: 60px;
+      padding: 4px 6px;
+      background: #0b0c10;
+      border: 1px solid #45a29e;
+      color: white;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .window-control select {
+      padding: 4px 6px;
+      background: #0b0c10;
+      border: 1px solid #45a29e;
+      color: white;
+      border-radius: 4px;
+    }
+    .window-control button {
+      background-color: #45a29e;
+      color: white;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    .window-control button:hover {
+      background-color: #66fcf1;
+      color: #0b0c10;
     }
 
     button {
@@ -277,6 +323,25 @@
     }
     .export-btn:hover {
       background-color: #34495e;
+    }
+
+    /* Botones de selector de eje (Waterfall) */
+    .axis-selector button {
+      background-color: #34495e;
+      padding: 6px 14px;
+      font-size: 0.9rem;
+      border-radius: 4px;
+      border: none;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .axis-selector button.active {
+      background-color: #2ecc71;
+      box-shadow: 0 0 8px #2ecc71;
+    }
+    .axis-selector button:hover {
+      background-color: #5d6d7e;
     }
 
     #contenedor {
@@ -387,6 +452,48 @@
     .btn-descargar:hover {
       background-color: #2980b9;
     }
+
+    /* ===== ESTILOS PARA EL WATERFALL ===== */
+    #waterfallContainer {
+      margin-top: 40px;
+      padding: 20px;
+      background: #1f2833;
+      border-radius: 12px;
+      border: 1px solid #45a29e;
+      width: 90%;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+      overflow: hidden;
+      position: relative;
+    }
+    #waterfallContainer h3 {
+      color: #66fcf1;
+      text-align: center;
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    #waterfallCanvas {
+      width: 100%;
+      height: 500px;
+      display: block;
+    }
+    /* Botón de descarga del waterfall */
+    .btn-descargar-waterfall {
+      background-color: #2c3e50;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: bold;
+      transition: 0.3s;
+      margin-top: 8px;
+    }
+    .btn-descargar-waterfall:hover {
+      background-color: #34495e;
+    }
   </style>
 </head>
 <body>
@@ -423,6 +530,22 @@
     <button class="btn-firebase" onclick="subirAFirebase()" id="btnFirebase" disabled>☁️ Subir a Firebase</button>
     <button class="btn-reset3d" onclick="resetearFigura3D()" title="Restablecer posición horizontal">↺ Reset 3D</button>
     <button class="export-btn" onclick="exportBoth()">📁 Exportar ambos (tiempo + frecuencia)</button>
+    <!-- Selector de eje para el Waterfall -->
+    <div class="axis-selector">
+      <button id="btnAxisX" class="active" onclick="setAxis('X')">Eje X</button>
+      <button id="btnAxisY" onclick="setAxis('Y')">Eje Y</button>
+      <button id="btnAxisZ" onclick="setAxis('Z')">Eje Z</button>
+    </div>
+    <!-- Control de ventana (duración en segundos) -->
+    <div class="window-control">
+      <label>Ventana:</label>
+      <input type="number" id="windowValue" value="20" min="1" step="1" />
+      <select id="windowUnit">
+        <option value="seconds">Segundos</option>
+        <option value="minutes">Minutos</option>
+      </select>
+      <button onclick="aplicarVentana()">Aplicar</button>
+    </div>
   </div>
 
   <div class="dashboard">
@@ -460,7 +583,7 @@
     <div id="caja3d2" style="width: 400px; height: 500px;"></div>
   </div>
 
-  <!-- ===== TABLA DE HISTORIAL AL FINAL ===== -->
+  <!-- ===== TABLA DE HISTORIAL ===== -->
   <div id="historialContainer">
     <h2>📋 Historial de Sesiones Largas</h2>
     <table class="historial-tabla" id="historialTabla">
@@ -476,6 +599,14 @@
         <!-- Las filas se generan dinámicamente -->
       </tbody>
     </table>
+  </div>
+
+  <!-- ===== WATERFALL 3D CON LÁMINAS + CONTORNO ===== -->
+  <div id="waterfallContainer">
+    <h3>🌊 Espectro en el Tiempo (Waterfall) – <span id="axisLabel">Eje X</span></h3>
+    <div id="waterfallCanvas"></div>
+    <!-- Botón para descargar el waterfall -->
+    <button class="btn-descargar-waterfall" onclick="descargarWaterfall()">📷 Descargar Waterfall</button>
   </div>
 
   <script>
@@ -603,7 +734,8 @@
     };
 
     const topicData = "imu/data";
-    const topicControl = "imu/control"; 
+    const topicControl = "imu/control";
+    const topicWindow = "imu/window";
     const client = mqtt.connect(broker, options);
 
     const elEstado = document.getElementById("estado");
@@ -642,30 +774,16 @@
     let chart, freqChart;
 
     // ========== HISTORIAL DE SESIONES LARGAS ==========
-    let historialSesiones = []; // cada elemento: { sesion, identificacion, datos, espectro }
+    let historialSesiones = [];
     let contadorSesion = 0;
 
     function agregarRegistroHistorial(estado, datos) {
-      // Si estado es false, lo convertimos a null para que aparezca como "No definido"
       const estadoFinal = (estado === true) ? true : null;
       contadorSesion++;
-      
-      // Capturar el espectro actual (última FFT calculada)
-      const frecuencias = freqChart ? freqChart.data.labels.slice() : [];
-      const magX = freqChart ? freqChart.data.datasets[0].data.slice() : [];
-      const magY = freqChart ? freqChart.data.datasets[1].data.slice() : [];
-      const magZ = freqChart ? freqChart.data.datasets[2].data.slice() : [];
-      
       historialSesiones.push({
         sesion: contadorSesion,
         identificacion: estadoFinal,
-        datos: datos.slice(), // copia de los datos de la sesión
-        espectro: {
-          frecuencias: frecuencias,
-          magnitudesX: magX,
-          magnitudesY: magY,
-          magnitudesZ: magZ
-        }
+        datos: datos.slice()
       });
       renderizarHistorial();
     }
@@ -673,7 +791,6 @@
     function cambiarEstadoHistorial(index) {
       if (index < 0 || index >= historialSesiones.length) return;
       const actual = historialSesiones[index].identificacion;
-      // Ciclo: null -> true -> false -> true -> false ...
       if (actual === null) {
         historialSesiones[index].identificacion = true;
       } else if (actual === true) {
@@ -690,36 +807,19 @@
         alert("No hay datos para esta sesión.");
         return;
       }
-      const estado = item.identificacion; // null, true o false
+      const estado = item.identificacion;
       const datos = item.datos;
-      const espectro = item.espectro;
       
       const formatNum = (num) => {
         if (isNaN(num) || num === undefined || num === null) return "0,0";
         return num.toString().replace('.', ',');
       };
       
-      // ===== SECCIÓN DE DATOS DE TIEMPO =====
-      let csvString = "sep=;\r\n";
-      csvString += "=== DATOS DE TIEMPO ===\r\n";
-      csvString += "Timestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
+      let csvString = "sep=;\r\nTimestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
       datos.forEach(p => {
         const estadoStr = estado === true ? "VERDADERO" : (estado === false ? "FALSO" : "NO_DEFINIDO");
         csvString += `${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)};${estadoStr}\r\n`;
       });
-      
-      // ===== SECCIÓN DEL ESPECTRO DE FRECUENCIA =====
-      if (espectro && espectro.frecuencias && espectro.frecuencias.length > 0) {
-        csvString += "\r\n=== ESPECTRO DE FRECUENCIA ===\r\n";
-        csvString += "Frecuencia;Amplitud_X;Amplitud_Y;Amplitud_Z\r\n";
-        for (let i = 0; i < espectro.frecuencias.length; i++) {
-          let fStr = espectro.frecuencias[i].replace('.', ',');
-          let xStr = formatNum(espectro.magnitudesX[i]);
-          let yStr = formatNum(espectro.magnitudesY[i]);
-          let zStr = formatNum(espectro.magnitudesZ[i]);
-          csvString += `${fStr};${xStr};${yStr};${zStr}\r\n`;
-        }
-      }
       
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
       const blob = new Blob([bom, csvString], { type: 'text/csv;charset=utf-8' });
@@ -739,11 +839,9 @@
       tbody.innerHTML = "";
       historialSesiones.forEach((item, idx) => {
         const tr = document.createElement("tr");
-        // Columna sesión
         const tdSesion = document.createElement("td");
         tdSesion.textContent = item.sesion;
         tr.appendChild(tdSesion);
-        // Columna identificación
         const tdIdent = document.createElement("td");
         if (item.identificacion === true) {
           tdIdent.innerHTML = '<span class="ident-si">✅ Sí</span>';
@@ -753,7 +851,6 @@
           tdIdent.innerHTML = '<span class="ident-null">❓ No definido</span>';
         }
         tr.appendChild(tdIdent);
-        // Columna acción (botón de cambiar estado)
         const tdAccion = document.createElement("td");
         const btnEstado = document.createElement("button");
         btnEstado.className = "btn-historial";
@@ -763,14 +860,13 @@
         } else if (item.identificacion === true) {
           btnEstado.textContent = "Agregar notificación";
           btnEstado.classList.add("true");
-        } else { // false
+        } else {
           btnEstado.textContent = "Remover identificación";
           btnEstado.classList.add("false");
         }
         btnEstado.onclick = function() { cambiarEstadoHistorial(idx); };
         tdAccion.appendChild(btnEstado);
         tr.appendChild(tdAccion);
-        // Columna descargar
         const tdDescargar = document.createElement("td");
         const btnDescargar = document.createElement("button");
         btnDescargar.textContent = "📥 CSV";
@@ -780,6 +876,15 @@
         tr.appendChild(tdDescargar);
         tbody.appendChild(tr);
       });
+    }
+
+    // ========== FUNCIÓN PARA RESETEAR BOTÓN Y ALERTA ==========
+    function resetearBotonYAlerta() {
+      parkinsonConfirmed = false;
+      parkinsonAlert.style.display = "none";
+      btnManual.classList.remove("btn-manual-large");
+      identificacionManual = false;
+      actualizarBotonManual();
     }
 
     // ========== ACTUALIZAR BOTÓN MANUAL ==========
@@ -796,10 +901,8 @@
     // ========== TOGGLE IDENTIFICACIÓN MANUAL ==========
     function toggleIdentificacionManual(event) {
       if (event && event.target.classList.contains('close-manual')) return;
-      
       identificacionManual = !identificacionManual;
       actualizarBotonManual();
-      
       if (identificacionManual) {
         setStatusMessage("🧠 Marcado como ataque real por el usuario", "#2ecc71");
       } else {
@@ -807,7 +910,7 @@
       }
     }
 
-    // ========== DESMARCAR MANUAL (al hacer clic en la X) ==========
+    // ========== DESMARCAR MANUAL ==========
     function desmarcarManual(event) {
       event.stopPropagation();
       if (identificacionManual) {
@@ -907,11 +1010,9 @@
 
     function detenerCaptura() {
       if(client.connected) {
-        // === FINALIZAR SESIÓN ACTUAL (si existe) ===
         if (sessionActive && sessionData.length > 0) {
           agregarRegistroHistorial(identificacionManual ? true : null, sessionData);
         }
-        
         client.publish(topicControl, "STOP");
         setStatusMessage("🛑 Captura detenida. ESP32 en espera...", "#ff6b6b");
         isTremorActive = false;
@@ -921,26 +1022,51 @@
           clearTimeout(resetExtensionTimer);
           resetExtensionTimer = null;
         }
-        // Limpiar datos de sesión
         sessionData = [];
-        // Limpiar buffers
         bufferX = [];
         bufferY = [];
         bufferZ = [];
-        // Reiniciar alerta
-        parkinsonConfirmed = false;
-        parkinsonAlert.style.display = "none";
-        btnManual.classList.remove("btn-manual-large");
-        // Resetear identificación manual
-        identificacionManual = false;
-        actualizarBotonManual();
-        
+        resetearBotonYAlerta();
         setTimeout(() => {
           if (client.connected) {
             setStatusMessage("✅ Conectado - En espera de datos", "#66fcf1");
           }
         }, 3000);
       }
+    }
+
+    // ========== NUEVA FUNCIÓN PARA AJUSTAR VENTANA ==========
+    function aplicarVentana() {
+      if (!client.connected) {
+        alert("No conectado al broker MQTT.");
+        return;
+      }
+      const valor = parseInt(document.getElementById("windowValue").value);
+      const unidad = document.getElementById("windowUnit").value;
+      if (isNaN(valor) || valor < 1) {
+        alert("Ingresa un número válido (mínimo 1).");
+        return;
+      }
+      let segundos;
+      if (unidad === "seconds") {
+        segundos = valor;
+      } else { // minutos
+        segundos = valor * 60;
+      }
+      // Calcular muestras (50 por segundo)
+      const muestras = segundos * 50;
+      // Publicar en el tópico
+      client.publish(topicWindow, Math.round(muestras).toString());
+      setStatusMessage(`📤 Ventana ajustada a ${segundos} segundos (${Math.round(muestras)} muestras)`, "#66fcf1");
+      console.log(`Publicado en ${topicWindow}: ${Math.round(muestras)}`);
+      
+      // Actualizar la duración de la ventana para el Waterfall
+      ventanaSegundos = segundos;
+      // Reiniciar el intervalo del Waterfall
+      reiniciarIntervaloWaterfall();
+      // Reiniciar el historial (para que las nuevas rebanadas se alineen con la nueva duración)
+      resetWaterfallHistory();
+      updateWaterfall();
     }
 
     // ========== GUARDAR TODOS LOS DATOS DEL HISTORIAL (CSV) ==========
@@ -956,36 +1082,15 @@
       };
 
       let csvString = "sep=;\r\n";
-      
-      historialSesiones.forEach((item, idx) => {
+      csvString += "Sesion;Timestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z;Identificacion_Manual\r\n";
+
+      historialSesiones.forEach(item => {
         const estado = item.identificacion;
         const datos = item.datos;
-        const espectro = item.espectro;
-        
-        // Encabezado de sesión
-        csvString += `\r\n=== SESIÓN ${item.sesion} ===\r\n`;
-        csvString += `Identificación: ${estado === true ? "VERDADERO" : (estado === false ? "FALSO" : "NO_DEFINIDO")}\r\n`;
-        
-        // Datos de tiempo
-        csvString += "--- DATOS DE TIEMPO ---\r\n";
-        csvString += "Timestamp;Eje_X;Eje_Y;Eje_Z;Frecuencia_X;Frecuencia_Y;Frecuencia_Z\r\n";
         datos.forEach(p => {
-          csvString += `${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)}\r\n`;
+          const estadoStr = estado === true ? "VERDADERO" : (estado === false ? "FALSO" : "NO_DEFINIDO");
+          csvString += `${item.sesion};${p.time};${formatNum(p.x)};${formatNum(p.y)};${formatNum(p.z)};${formatNum(p.freqX)};${formatNum(p.freqY)};${formatNum(p.freqZ)};${estadoStr}\r\n`;
         });
-        
-        // Espectro de frecuencia
-        if (espectro && espectro.frecuencias && espectro.frecuencias.length > 0) {
-          csvString += "--- ESPECTRO DE FRECUENCIA ---\r\n";
-          csvString += "Frecuencia;Amplitud_X;Amplitud_Y;Amplitud_Z\r\n";
-          for (let i = 0; i < espectro.frecuencias.length; i++) {
-            let fStr = espectro.frecuencias[i].replace('.', ',');
-            let xStr = formatNum(espectro.magnitudesX[i]);
-            let yStr = formatNum(espectro.magnitudesY[i]);
-            let zStr = formatNum(espectro.magnitudesZ[i]);
-            csvString += `${fStr};${xStr};${yStr};${zStr}\r\n`;
-          }
-        }
-        csvString += "\r\n"; // separador entre sesiones
       });
 
       const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
@@ -1099,7 +1204,7 @@
       console.log("[ESTADO]", text);
     }
 
-    // ========== FUNCIONES FFT ==========
+    // ========== FUNCIONES FFT CON VENTANA HANNING ==========
     function performFFT(real, imag) {
         let n = real.length;
         if (n <= 1) return;
@@ -1144,6 +1249,7 @@
         for (let i = 0; i < originalSize; i++) sum += paddedReal[i];
         let mean = sum / originalSize;
         for (let i = 0; i < originalSize; i++) paddedReal[i] -= mean;
+        // Ventana Hanning
         for (let i = 0; i < originalSize; i++) {
             let hanning = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (originalSize - 1)));
             paddedReal[i] *= hanning;
@@ -1240,7 +1346,7 @@
       }
     });
 
-    // ========== MODELO 3D ==========
+    // ========== MODELO 3D (CUBO) ==========
     const container3D = document.getElementById("caja3d2");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1f2833);
@@ -1272,7 +1378,321 @@
     }
     animate3D();
 
-    // ========== PROCESAMIENTO DE DATOS ==========
+    // ========== WATERFALL 3D CON LÁMINAS + CONTORNO ==========
+    const WATERFALL_HISTORY = 30;
+    const WATERFALL_BINS = 60;
+    const FREQ_MAX = 24.2;
+    const AMPLITUD_MAX = 30; 
+
+    let waterfallHistory = [];
+    let currentMagX = new Array(FFT_PADDED_SIZE/2).fill(0);
+    let currentMagY = new Array(FFT_PADDED_SIZE/2).fill(0);
+    let currentMagZ = new Array(FFT_PADDED_SIZE/2).fill(0);
+    let selectedAxis = 'X';
+    let smoothedMagnitudes = null;
+    const SMOOTH_ALPHA = 0.6;
+
+    // Variables Three.js para el waterfall
+    let wScene, wCamera, wRenderer, wControls;
+    let wGroup = null;
+    const wContainer = document.getElementById('waterfallCanvas');
+
+    // Duración actual de la ventana (segundos)
+    let ventanaSegundos = 20; // por defecto 20 segundos
+    let waterfallIntervalId = null;
+
+    // ========== FUNCIÓN PARA DESCARGAR WATERFALL ==========
+    function descargarWaterfall() {
+      if (!wRenderer) {
+        alert("El gráfico Waterfall aún no está listo.");
+        return;
+      }
+      // Forzar renderizado para asegurar que el canvas esté actualizado
+      wRenderer.render(wScene, wCamera);
+      // Obtener la imagen en formato PNG
+      const dataURL = wRenderer.domElement.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataURL;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      link.download = `waterfall_${selectedAxis}_${timestamp}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setStatusMessage('📷 Waterfall descargado como imagen', '#66fcf1');
+    }
+
+    // Selección de eje
+    function setAxis(axis) {
+      selectedAxis = axis;
+      document.querySelectorAll('.axis-selector button').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById('btnAxis' + axis);
+      if (btn) btn.classList.add('active');
+      document.getElementById('axisLabel').textContent = 'Eje ' + axis;
+      resetWaterfallHistory();
+      smoothedMagnitudes = null;
+      updateWaterfall();
+      setStatusMessage('Eje cambiado a ' + axis, '#66fcf1');
+    }
+
+    function resetWaterfallHistory() {
+      waterfallHistory = [];
+      for (let i = 0; i < WATERFALL_HISTORY; i++) {
+        waterfallHistory.push(new Array(WATERFALL_BINS).fill(0));
+      }
+    }
+
+    // Reiniciar el intervalo del Waterfall según la duración de la ventana
+    function reiniciarIntervaloWaterfall() {
+      if (waterfallIntervalId) {
+        clearInterval(waterfallIntervalId);
+        waterfallIntervalId = null;
+      }
+      // Calcular intervalo en milisegundos
+      const intervaloMs = (ventanaSegundos / WATERFALL_HISTORY) * 1000;
+      // Evitar intervalos demasiado cortos (menos de 100 ms) o demasiado largos (más de 10 s)
+      const intervalo = Math.min(Math.max(intervaloMs, 100), 10000);
+      console.log(`Waterfall: intervalo de ${intervalo} ms (ventana de ${ventanaSegundos} s)`);
+      
+      waterfallIntervalId = setInterval(() => {
+        if (!sessionActive) return;
+        let mags;
+        if (selectedAxis === 'X') mags = currentMagX;
+        else if (selectedAxis === 'Y') mags = currentMagY;
+        else if (selectedAxis === 'Z') mags = currentMagZ;
+        if (!mags || mags.length === 0) return;
+
+        if (smoothedMagnitudes === null) {
+          smoothedMagnitudes = mags.slice();
+        } else {
+          for (let i = 0; i < mags.length; i++) {
+            smoothedMagnitudes[i] = smoothedMagnitudes[i] * (1 - SMOOTH_ALPHA) + mags[i] * SMOOTH_ALPHA;
+          }
+        }
+        const smoothed = smoothedMagnitudes;
+
+        const reduced = [];
+        const step = Math.floor((FFT_PADDED_SIZE/2) / WATERFALL_BINS);
+        for (let i = 0; i < WATERFALL_BINS; i++) {
+          const idx = Math.min(i * step, smoothed.length - 1);
+          reduced.push(smoothed[idx] || 0);
+        }
+        waterfallHistory.push(reduced);
+        if (waterfallHistory.length > WATERFALL_HISTORY) {
+          waterfallHistory.shift();
+        }
+        updateWaterfall();
+      }, intervalo);
+    }
+
+    // Crear sprite de texto
+    function createTextSprite(text, position, color = 0xffffff, size = 0.6) {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = 256;
+      canvas.height = 64;
+      context.fillStyle = 'rgba(0,0,0,0)';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.font = 'Bold 28px Arial';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillStyle = '#fff';
+      context.fillText(text, canvas.width/2, canvas.height/2);
+      const texture = new THREE.CanvasTexture(canvas);
+      const material = new THREE.SpriteMaterial({ map: texture, transparent: true, color: color });
+      const sprite = new THREE.Sprite(material);
+      sprite.position.copy(position);
+      sprite.scale.set(size * 4, size, 1);
+      return sprite;
+    }
+
+    // Inicializar escena waterfall
+    function initWaterfall() {
+      const width = wContainer.clientWidth || 800;
+      const height = wContainer.clientHeight || 500;
+
+      wScene = new THREE.Scene();
+      wScene.background = new THREE.Color(0x1f2833);
+
+      wCamera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+      wCamera.position.set(12, 6, 20);
+      wCamera.lookAt(0, 1, 0);
+
+      wRenderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        preserveDrawingBuffer: true  // <-- necesario para capturar imagen
+      });
+      wRenderer.setSize(width, height);
+      wRenderer.setPixelRatio(window.devicePixelRatio);
+      wContainer.appendChild(wRenderer.domElement);
+
+      wControls = new THREE.OrbitControls(wCamera, wRenderer.domElement);
+      wControls.enableDamping = true;
+      wControls.dampingFactor = 0.05;
+      wControls.target.set(0, 1, 0);
+      wControls.update();
+
+      const ambient = new THREE.AmbientLight(0x404060);
+      wScene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(5, 15, 10);
+      wScene.add(dirLight);
+      const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      backLight.position.set(-5, 5, -10);
+      wScene.add(backLight);
+
+      // --- EJES ---
+      const axisGroup = new THREE.Group();
+      wScene.add(axisGroup);
+      const axisMat = new THREE.LineBasicMaterial({ color: 0xaaaaaa });
+      const frontZ = 4.0;
+
+      const xPoints = [new THREE.Vector3(-4, 0, frontZ), new THREE.Vector3(4, 0, frontZ)];
+      axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(xPoints), axisMat));
+      const yPoints = [new THREE.Vector3(-4, 0, frontZ), new THREE.Vector3(-4, 4, frontZ)];
+      axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(yPoints), axisMat));
+      const zPoints = [new THREE.Vector3(-4, 0, -4), new THREE.Vector3(-4, 0, 4)];
+      axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(zPoints), axisMat));
+
+      axisGroup.add(createTextSprite('Frecuencia (Hz)', new THREE.Vector3(4.8, -0.3, frontZ), 0xffffff, 0.7));
+      axisGroup.add(createTextSprite('Amplitud', new THREE.Vector3(-4, 4.8, frontZ), 0xffffff, 0.7));
+      axisGroup.add(createTextSprite('Tiempo (s)', new THREE.Vector3(-4, -0.5, 5.2), 0xffffff, 0.7));
+
+      for (let f = 0; f <= 24; f += 4) {
+        const xPos = -4 + (f / FREQ_MAX) * 8;
+        const tick = [new THREE.Vector3(xPos, -0.1, frontZ), new THREE.Vector3(xPos, 0.1, frontZ)];
+        axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
+        axisGroup.add(createTextSprite(f.toString(), new THREE.Vector3(xPos, -0.5, frontZ), 0xffffff, 0.4));
+      }
+      for (let a = 0; a <= 30; a += 5) {
+        const yPos = (a / AMPLITUD_MAX) * 4;
+        const tick = [new THREE.Vector3(-4.15, yPos, frontZ), new THREE.Vector3(-3.85, yPos, frontZ)];
+        axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
+        axisGroup.add(createTextSprite(a.toString(), new THREE.Vector3(-4.8, yPos, frontZ), 0xffffff, 0.35));
+      }
+      for (let t = -15; t <= 15; t += 5) {
+        const zPos = (t / 15) * 4;
+        const tick = [new THREE.Vector3(-4, -0.1, zPos), new THREE.Vector3(-4, 0.1, zPos)];
+        axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
+        axisGroup.add(createTextSprite(t.toString(), new THREE.Vector3(-4.6, -0.5, zPos), 0xffffff, 0.4));
+      }
+
+      wGroup = new THREE.Group();
+      wScene.add(wGroup);
+
+      window.addEventListener('resize', () => {
+        const newWidth = wContainer.clientWidth || 800;
+        const newHeight = wContainer.clientHeight || 500;
+        wCamera.aspect = newWidth / newHeight;
+        wCamera.updateProjectionMatrix();
+        wRenderer.setSize(newWidth, newHeight);
+      });
+
+      function animateWF() {
+        requestAnimationFrame(animateWF);
+        wControls.update();
+        wRenderer.render(wScene, wCamera);
+      }
+      animateWF();
+    }
+
+    // Crear una lámina (área + contorno)
+    function createSlice(amplitudes, zPos, maxAmp) {
+      const group = new THREE.Group();
+      const xMin = -4, xMax = 4;
+      const yMax = 4.0;
+      const n = amplitudes.length;
+
+      const vertices = [];
+      const indices = [];
+      for (let i = 0; i < n - 1; i++) {
+        const x1 = xMin + (i / (n - 1)) * (xMax - xMin);
+        const x2 = xMin + ((i+1) / (n - 1)) * (xMax - xMin);
+        const amp1 = Math.min(amplitudes[i] || 0, AMPLITUD_MAX);
+        const amp2 = Math.min(amplitudes[i+1] || 0, AMPLITUD_MAX);
+        const y1 = (amp1 / AMPLITUD_MAX) * yMax;
+        const y2 = (amp2 / AMPLITUD_MAX) * yMax;
+        const base = vertices.length / 3;
+        vertices.push(x1, 0, 0);
+        vertices.push(x1, y1, 0);
+        vertices.push(x2, 0, 0);
+        vertices.push(x2, y2, 0);
+        indices.push(base, base+1, base+2);
+        indices.push(base+1, base+3, base+2);
+      }
+      const geomFill = new THREE.BufferGeometry();
+      geomFill.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geomFill.setIndex(indices);
+      geomFill.computeVertexNormals();
+
+      const norm = Math.min(1, maxAmp / AMPLITUD_MAX);
+      let r, g, b;
+      if (norm < 0.5) {
+        const t2 = norm * 2;
+        r = 0; g = t2; b = 1;
+      } else {
+        const t2 = (norm - 0.5) * 2;
+        r = t2; g = 1 - t2; b = 0;
+      }
+      const colorFill = new THREE.Color(r, g, b);
+      const matFill = new THREE.MeshPhongMaterial({
+        color: colorFill,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.7,
+        shininess: 30,
+        specular: new THREE.Color(0x222222)
+      });
+      const meshFill = new THREE.Mesh(geomFill, matFill);
+      meshFill.position.z = zPos;
+      group.add(meshFill);
+
+      const points = [];
+      for (let i = 0; i < n; i++) {
+        const x = xMin + (i / (n - 1)) * (xMax - xMin);
+        const amp = Math.min(amplitudes[i] || 0, AMPLITUD_MAX);
+        const y = (amp / AMPLITUD_MAX) * yMax;
+        points.push(new THREE.Vector3(x, y, 0));
+      }
+      const geomLine = new THREE.BufferGeometry().setFromPoints(points);
+      const matLine = new THREE.LineBasicMaterial({ color: 0xffffff });
+      const line = new THREE.Line(geomLine, matLine);
+      line.position.z = zPos;
+      group.add(line);
+
+      return group;
+    }
+
+    // Actualizar todas las láminas
+    function updateWaterfall() {
+      if (!wGroup) return;
+      while(wGroup.children.length > 0) {
+        const child = wGroup.children[0];
+        child.children.forEach(c => {
+          if (c.geometry) c.geometry.dispose();
+          if (c.material) c.material.dispose();
+        });
+        wGroup.remove(child);
+      }
+      const total = waterfallHistory.length;
+      for (let idx = 0; idx < total; idx++) {
+        const row = waterfallHistory[idx] || new Array(WATERFALL_BINS).fill(0);
+        let maxAmp = 0;
+        for (let v of row) if (v > maxAmp) maxAmp = v;
+        const zPos = -4 + (idx / (total - 1 || 1)) * 8;
+        wGroup.add(createSlice(row, zPos, maxAmp));
+      }
+    }
+
+    // ========== INICIALIZACIÓN ==========
+    window.addEventListener('load', () => {
+      initWaterfall();
+      resetWaterfallHistory();
+      updateWaterfall();
+      // Iniciar el intervalo con la duración por defecto (20 s)
+      reiniciarIntervaloWaterfall();
+    });
+
+    // ========== PROCESAMIENTO DE DATOS MQTT ==========
     client.on("message", (topic, msg) => {
       try {
         const payload = JSON.parse(msg.toString());
@@ -1322,6 +1742,10 @@
           const resY = getFFTMagnitudesWithPadding(bufferY, BUFFER_SIZE, FFT_PADDED_SIZE);
           const resZ = getFFTMagnitudesWithPadding(bufferZ, BUFFER_SIZE, FFT_PADDED_SIZE);
 
+          currentMagX = resX.magnitudes.slice();
+          currentMagY = resY.magnitudes.slice();
+          currentMagZ = resZ.magnitudes.slice();
+
           freqChart.data.datasets[0].data = resX.magnitudes;
           freqChart.data.datasets[1].data = resY.magnitudes;
           freqChart.data.datasets[2].data = resZ.magnitudes;
@@ -1360,18 +1784,8 @@
                       mostrarAlertaParkinson(freqMax);
                       if (resetExtensionTimer) clearTimeout(resetExtensionTimer);
                       resetExtensionTimer = setTimeout(() => {
-                          // === FINALIZA EL PERÍODO LARGO DE MUESTREO ===
-                          // Guardamos el registro con el estado actual (si no se presionó el botón, será null)
                           agregarRegistroHistorial(identificacionManual ? true : null, sessionData);
-                          
-                          // Reseteamos el botón de identificación manual
-                          identificacionManual = false;
-                          actualizarBotonManual();
-                          // Limpiamos la alerta y el botón grande
-                          parkinsonConfirmed = false;
-                          parkinsonAlert.style.display = "none";
-                          btnManual.classList.remove("btn-manual-large");
-                          
+                          resetearBotonYAlerta();
                           extensionSent = false;
                           isTremorActive = false;
                           setStatusMessage("🟢 Ventana extendida finalizada - Monitor activo", "#66fcf1");
