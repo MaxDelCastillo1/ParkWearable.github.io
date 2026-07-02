@@ -235,11 +235,10 @@
       align-items: center;
     }
 
-    /* Estilos para los controles de ventana corta y larga */
     .window-control-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
       background: #1f2833;
       padding: 6px 12px;
@@ -261,6 +260,14 @@
       text-align: center;
       font-size: 0.85rem;
     }
+    .window-control-group select {
+      padding: 4px 6px;
+      background: #0b0c10;
+      border: 1px solid #45a29e;
+      color: white;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
     .window-control-group button {
       background-color: #45a29e;
       color: white;
@@ -275,6 +282,21 @@
     .window-control-group button:hover {
       background-color: #66fcf1;
       color: #0b0c10;
+    }
+
+    .btn-actualizar-waterfall {
+      background-color: #f39c12;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    .btn-actualizar-waterfall:hover {
+      background-color: #e67e22;
     }
 
     button {
@@ -322,22 +344,27 @@
       background-color: #34495e;
     }
 
-    /* Botones de selector de eje (Waterfall) */
-    .axis-selector button {
+    /* Botones de selector de eje (Waterfall) - ahora dentro del contenedor del waterfall */
+    .axis-selector-waterfall {
+      display: inline-flex;
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .axis-selector-waterfall button {
       background-color: #34495e;
-      padding: 6px 14px;
-      font-size: 0.9rem;
+      padding: 4px 14px;
+      font-size: 0.85rem;
       border-radius: 4px;
       border: none;
       color: white;
       cursor: pointer;
       transition: 0.3s;
     }
-    .axis-selector button.active {
+    .axis-selector-waterfall button.active {
       background-color: #2ecc71;
       box-shadow: 0 0 8px #2ecc71;
     }
-    .axis-selector button:hover {
+    .axis-selector-waterfall button:hover {
       background-color: #5d6d7e;
     }
 
@@ -475,6 +502,14 @@
       height: 500px;
       display: block;
     }
+    .waterfall-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
     .btn-descargar-waterfall {
       background-color: #2c3e50;
       color: white;
@@ -485,10 +520,23 @@
       font-size: 0.8rem;
       font-weight: bold;
       transition: 0.3s;
-      margin-top: 8px;
     }
     .btn-descargar-waterfall:hover {
       background-color: #34495e;
+    }
+    .btn-freq-csv {
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    .btn-freq-csv:hover {
+      background-color: #2ecc71;
     }
   </style>
 </head>
@@ -527,22 +575,23 @@
     <button class="btn-reset3d" onclick="resetearFigura3D()" title="Restablecer posición horizontal">↺ Reset 3D</button>
     <button class="export-btn" onclick="exportBoth()">📁 Exportar ambos (tiempo + frecuencia)</button>
 
-    <!-- Selector de eje para el Waterfall -->
-    <div class="axis-selector">
-      <button id="btnAxisX" class="active" onclick="setAxis('X')">Eje X</button>
-      <button id="btnAxisY" onclick="setAxis('Y')">Eje Y</button>
-      <button id="btnAxisZ" onclick="setAxis('Z')">Eje Z</button>
-    </div>
-
-    <!-- Controles de ventana corta y larga (en segundos) -->
+    <!-- Controles de ventana corta y larga (con selector de unidad) -->
     <div class="window-control-group">
       <label>Corta</label>
-      <input type="number" id="windowShortSec" value="10" min="1" step="1" />
+      <input type="number" id="windowShortVal" value="10" min="1" step="1" />
+      <select id="windowShortUnit">
+        <option value="seconds">Seg</option>
+        <option value="minutes">Min</option>
+      </select>
       <button onclick="aplicarVentanaCorta()">Aplicar</button>
     </div>
     <div class="window-control-group">
       <label>Larga</label>
-      <input type="number" id="windowLongSec" value="40" min="1" step="1" />
+      <input type="number" id="windowLongVal" value="40" min="1" step="1" />
+      <select id="windowLongUnit">
+        <option value="seconds">Seg</option>
+        <option value="minutes">Min</option>
+      </select>
       <button onclick="aplicarVentanaLarga()">Aplicar</button>
     </div>
   </div>
@@ -604,7 +653,20 @@
   <div id="waterfallContainer">
     <h3>🌊 Espectro en el Tiempo (Waterfall) – <span id="axisLabel">Eje X</span></h3>
     <div id="waterfallCanvas"></div>
-    <button class="btn-descargar-waterfall" onclick="descargarWaterfall()">📷 Descargar Waterfall</button>
+    <div class="waterfall-controls">
+      <!-- Selector de eje (X, Y, Z) ahora aquí -->
+      <div class="axis-selector-waterfall">
+        <button id="btnAxisX" class="active" onclick="setAxis('X')">Eje X</button>
+        <button id="btnAxisY" onclick="setAxis('Y')">Eje Y</button>
+        <button id="btnAxisZ" onclick="setAxis('Z')">Eje Z</button>
+      </div>
+      <!-- Botón de descarga de imagen (HD) -->
+      <button class="btn-descargar-waterfall" onclick="descargarWaterfall()">📷 Descargar Waterfall</button>
+      <!-- Botón para descargar frecuencias dominantes -->
+      <button class="btn-freq-csv" onclick="descargarFrecuencias()">📊 Descargar frecuencias (CSV)</button>
+      <!-- Botón de actualización forzada del waterfall -->
+      <button class="btn-actualizar-waterfall" onclick="actualizarWaterfall()">🔄 Actualizar Waterfall</button>
+    </div>
   </div>
 
   <script>
@@ -775,6 +837,14 @@
     // ========== HISTORIAL DE SESIONES LARGAS ==========
     let historialSesiones = [];
     let contadorSesion = 0;
+
+    // ========== Historial de frecuencias para el waterfall ==========
+    let freqHistory = [];  // { time, freqX, freqY, freqZ }
+    let sessionStartTime = null;
+
+    // ========== Variables de ventanas (en segundos) ==========
+    let ventanaCortaSegundos = 10;
+    let ventanaLargaSegundos = 40;  // se usa para escalar el waterfall
 
     function agregarRegistroHistorial(estado, datos) {
       const estadoFinal = (estado === true) ? true : null;
@@ -1025,6 +1095,8 @@
         bufferX = [];
         bufferY = [];
         bufferZ = [];
+        freqHistory = [];
+        sessionStartTime = null;
         resetearBotonYAlerta();
         setTimeout(() => {
           if (client.connected) {
@@ -1040,15 +1112,19 @@
         alert("No conectado al broker MQTT.");
         return;
       }
-      const segundos = parseInt(document.getElementById("windowShortSec").value);
-      if (isNaN(segundos) || segundos < 1) {
-        alert("Ingresa un número válido (mínimo 1 segundo).");
+      const valor = parseFloat(document.getElementById("windowShortVal").value);
+      const unidad = document.getElementById("windowShortUnit").value;
+      if (isNaN(valor) || valor < 0.1) {
+        alert("Ingresa un número válido (mínimo 0.1).");
         return;
       }
-      const muestras = segundos * 50; // 50 muestras por segundo
-      client.publish(topicWindowShort, Math.round(muestras).toString());
-      setStatusMessage(`📤 Ventana corta: ${segundos} s (${Math.round(muestras)} muestras)`, "#66fcf1");
-      console.log(`Publicado en ${topicWindowShort}: ${Math.round(muestras)}`);
+      let segundos = (unidad === "minutes") ? valor * 60 : valor;
+      // Actualizar variable global
+      ventanaCortaSegundos = segundos;
+      const muestras = Math.round(segundos * 50);
+      client.publish(topicWindowShort, muestras.toString());
+      setStatusMessage(`📤 Ventana corta: ${segundos} s (${muestras} muestras)`, "#66fcf1");
+      console.log(`Publicado en ${topicWindowShort}: ${muestras}`);
     }
 
     function aplicarVentanaLarga() {
@@ -1056,15 +1132,51 @@
         alert("No conectado al broker MQTT.");
         return;
       }
-      const segundos = parseInt(document.getElementById("windowLongSec").value);
-      if (isNaN(segundos) || segundos < 1) {
-        alert("Ingresa un número válido (mínimo 1 segundo).");
+      const valor = parseFloat(document.getElementById("windowLongVal").value);
+      const unidad = document.getElementById("windowLongUnit").value;
+      if (isNaN(valor) || valor < 0.1) {
+        alert("Ingresa un número válido (mínimo 0.1).");
         return;
       }
-      const muestras = segundos * 50;
-      client.publish(topicWindowLong, Math.round(muestras).toString());
-      setStatusMessage(`📤 Ventana larga: ${segundos} s (${Math.round(muestras)} muestras)`, "#66fcf1");
-      console.log(`Publicado en ${topicWindowLong}: ${Math.round(muestras)}`);
+      let segundos = (unidad === "minutes") ? valor * 60 : valor;
+      // Actualizar variable global
+      ventanaLargaSegundos = segundos;
+      const muestras = Math.round(segundos * 50);
+      client.publish(topicWindowLong, muestras.toString());
+      setStatusMessage(`📤 Ventana larga: ${segundos} s (${muestras} muestras)`, "#66fcf1");
+      console.log(`Publicado en ${topicWindowLong}: ${muestras}`);
+      
+      // Reiniciar el waterfall para que el eje tiempo se actualice
+      reiniciarWaterfallConNuevaVentana();
+    }
+
+    // ========== FUNCIÓN PARA REINICIAR WATERFALL CON NUEVA VENTANA LARGA ==========
+    function reiniciarWaterfallConNuevaVentana() {
+      // Reiniciar historial y frecuencias
+      resetWaterfallHistory();
+      freqHistory = [];
+      sessionStartTime = null;
+      smoothedMagnitudes = null;
+      // Actualizar etiquetas del eje Z
+      actualizarEtiquetasEjeZ();
+      // Reiniciar el intervalo
+      reiniciarIntervaloWaterfall();
+      // Actualizar visualización
+      updateWaterfall();
+      setStatusMessage(`⏱️ Waterfall reiniciado con ventana de ${ventanaLargaSegundos} s`, "#66fcf1");
+    }
+
+    // ========== FUNCIÓN DE ACTUALIZACIÓN FORZADA DEL WATERFALL ==========
+    function actualizarWaterfall() {
+      // Forzar la recreación de ejes y limpieza de residuos
+      resetWaterfallHistory();
+      freqHistory = [];
+      sessionStartTime = null;
+      smoothedMagnitudes = null;
+      actualizarEtiquetasEjeZ();
+      reiniciarIntervaloWaterfall();
+      updateWaterfall();
+      setStatusMessage("🔄 Waterfall actualizado", "#f39c12");
     }
 
     // ========== GUARDAR TODOS LOS DATOS DEL HISTORIAL (CSV) ==========
@@ -1376,7 +1488,7 @@
     }
     animate3D();
 
-    // ========== WATERFALL 3D CON LÁMINAS + CONTORNO ==========
+    // ========== WATERFALL 3D CON LÁMINAS + CONTORNO (con tiempo corregido) ==========
     const WATERFALL_HISTORY = 30;
     const WATERFALL_BINS = 60;
     const FREQ_MAX = 24.2;
@@ -1393,13 +1505,12 @@
     // Variables Three.js para el waterfall
     let wScene, wCamera, wRenderer, wControls;
     let wGroup = null;
+    let wAxisGroup = null;
     const wContainer = document.getElementById('waterfallCanvas');
 
-    // Duración actual de la ventana (segundos) - se usa para el waterfall, pero ahora se puede ajustar independientemente
-    let ventanaSegundos = 20; // por defecto 20 segundos (usado para el waterfall)
     let waterfallIntervalId = null;
 
-    // ========== FUNCIÓN PARA DESCARGAR WATERFALL ==========
+    // ========== FUNCIÓN PARA DESCARGAR WATERFALL (IMAGEN HD) ==========
     function descargarWaterfall() {
       if (!wRenderer) {
         alert("El gráfico Waterfall aún no está listo.");
@@ -1414,17 +1525,43 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setStatusMessage('📷 Waterfall descargado como imagen', '#66fcf1');
+      setStatusMessage('📷 Waterfall descargado como imagen HD', '#66fcf1');
+    }
+
+    // ========== FUNCIÓN PARA DESCARGAR FRECUENCIAS DOMINANTES (CSV) ==========
+    function descargarFrecuencias() {
+      if (freqHistory.length === 0) {
+        alert("No hay datos de frecuencia para descargar. Espera a que se recojan algunas rebanadas.");
+        return;
+      }
+      let csv = "sep=;\r\n";
+      csv += "Tiempo (s);Frecuencia_X (Hz);Frecuencia_Y (Hz);Frecuencia_Z (Hz)\r\n";
+      freqHistory.forEach(item => {
+        csv += `${item.time.toFixed(3)};${item.freqX.toFixed(3)};${item.freqY.toFixed(3)};${item.freqZ.toFixed(3)}\r\n`;
+      });
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      link.download = `frecuencias_waterfall_${timestamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setStatusMessage(`📊 ${freqHistory.length} rebanadas de frecuencia descargadas`, '#2ecc71');
     }
 
     // Selección de eje
     function setAxis(axis) {
       selectedAxis = axis;
-      document.querySelectorAll('.axis-selector button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.axis-selector-waterfall button').forEach(b => b.classList.remove('active'));
       const btn = document.getElementById('btnAxis' + axis);
       if (btn) btn.classList.add('active');
       document.getElementById('axisLabel').textContent = 'Eje ' + axis;
       resetWaterfallHistory();
+      freqHistory = [];
+      sessionStartTime = null;
       smoothedMagnitudes = null;
       updateWaterfall();
       setStatusMessage('Eje cambiado a ' + axis, '#66fcf1');
@@ -1437,15 +1574,118 @@
       }
     }
 
-    // Reiniciar el intervalo del Waterfall según la duración de la ventana (ventanaSegundos)
+    // ========== CREAR EJES Y ETIQUETAS (con tiempo corregido: 0 al frente, max al fondo) ==========
+    function crearEjesYEtiquetas() {
+      // Limpiar grupo anterior
+      if (wAxisGroup) {
+        while (wAxisGroup.children.length > 0) {
+          const child = wAxisGroup.children[0];
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+          wAxisGroup.remove(child);
+        }
+        wScene.remove(wAxisGroup);
+        wAxisGroup = null;
+      }
+
+      wAxisGroup = new THREE.Group();
+      wScene.add(wAxisGroup);
+
+      const axisMat = new THREE.LineBasicMaterial({ color: 0xaaaaaa });
+      const frontZ = 4.0;
+      const timeAxisX = 4.0;
+
+      // Eje X (Frecuencia)
+      const xPoints = [new THREE.Vector3(-4, 0, frontZ), new THREE.Vector3(4, 0, frontZ)];
+      wAxisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(xPoints), axisMat));
+
+      // Eje Y (Amplitud)
+      const yPoints = [new THREE.Vector3(-4, 0, frontZ), new THREE.Vector3(-4, 4, frontZ)];
+      wAxisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(yPoints), axisMat));
+
+      // Eje Z (Tiempo) – en el lado derecho
+      const zPoints = [new THREE.Vector3(timeAxisX, 0, -4), new THREE.Vector3(timeAxisX, 0, 4)];
+      wAxisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(zPoints), axisMat));
+
+      // Determinar si mostrar en minutos o segundos
+      const mostrarMinutos = ventanaLargaSegundos >= 60;
+      const etiquetaTiempo = mostrarMinutos ? "Tiempo (min)" : "Tiempo (s)";
+      const factorConversion = mostrarMinutos ? 60 : 1;
+
+      // Etiquetas de los ejes
+      wAxisGroup.add(createTextSprite('Frecuencia (Hz)', new THREE.Vector3(-5.2, -0.8, frontZ + 0.8), 0xffffff, 0.8));
+      wAxisGroup.add(createTextSprite('Amplitud', new THREE.Vector3(-5.6, 5.0, frontZ), 0xffffff, 0.8));
+      wAxisGroup.add(createTextSprite(etiquetaTiempo, new THREE.Vector3(5.2, -0.8, 5.5), 0xffffff, 0.8));
+
+      // Marcas y etiquetas en el eje X (Frecuencia)
+      for (let f = 0; f <= 24; f += 4) {
+        const xPos = -4 + (f / FREQ_MAX) * 8;
+        const tick = [new THREE.Vector3(xPos, -0.1, frontZ), new THREE.Vector3(xPos, 0.1, frontZ)];
+        wAxisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
+        wAxisGroup.add(createTextSprite(f.toString(), new THREE.Vector3(xPos, -0.6, frontZ), 0xffffff, 0.65));
+      }
+
+      // Marcas y etiquetas en el eje Y (Amplitud)
+      for (let a = 0; a <= 30; a += 5) {
+        const yPos = (a / AMPLITUD_MAX) * 4;
+        const tick = [new THREE.Vector3(-4.15, yPos, frontZ), new THREE.Vector3(-3.85, yPos, frontZ)];
+        wAxisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
+        wAxisGroup.add(createTextSprite(a.toString(), new THREE.Vector3(-5.0, yPos, frontZ), 0xffffff, 0.65));
+      }
+
+      // ====== MARCA DE TIEMPO: máximo 5 números, de 0 a maxTime (0 en z=4, max en z=-4) ======
+      const maxTime = ventanaLargaSegundos;
+      
+      function generarMarcasTiempo(max) {
+        if (max <= 1) return [0, max];
+        const numMarcas = Math.min(5, Math.max(2, Math.ceil(max / 10)));
+        let paso = max / (numMarcas - 1);
+        const pasosBonitos = [1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600];
+        let pasoFinal = pasosBonitos[0];
+        for (let p of pasosBonitos) {
+          if (p >= paso) { pasoFinal = p; break; }
+        }
+        const marcas = [];
+        for (let t = 0; t <= max; t += pasoFinal) {
+          marcas.push(t);
+        }
+        if (marcas[marcas.length - 1] < max) {
+          marcas.push(max);
+        }
+        if (marcas.length > 5) {
+          const indices = [0, Math.floor((marcas.length - 1) * 0.25), Math.floor((marcas.length - 1) * 0.5), Math.floor((marcas.length - 1) * 0.75), marcas.length - 1];
+          return indices.map(i => marcas[i]);
+        }
+        return marcas;
+      }
+
+      const marcasTiempo = generarMarcasTiempo(maxTime);
+      
+      marcasTiempo.forEach(t => {
+        // zPos = 4 - (t/maxTime)*8, de modo que t=0 -> z=4 (frente), t=max -> z=-4 (fondo)
+        const zPos = 4 - (t / maxTime) * 8;
+        const tick = [new THREE.Vector3(timeAxisX - 0.1, 0, zPos), new THREE.Vector3(timeAxisX + 0.1, 0, zPos)];
+        wAxisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
+        const valorMostrar = mostrarMinutos ? (t / 60).toFixed(1) : t.toString();
+        wAxisGroup.add(createTextSprite(valorMostrar, new THREE.Vector3(timeAxisX + 0.6, -0.5, zPos), 0xffffff, 0.65));
+      });
+    }
+
+    // ========== ACTUALIZAR ETIQUETAS DEL EJE Z ==========
+    function actualizarEtiquetasEjeZ() {
+      crearEjesYEtiquetas();
+    }
+
+    // ========== REINICIAR INTERVALO DEL WATERFALL ==========
     function reiniciarIntervaloWaterfall() {
       if (waterfallIntervalId) {
         clearInterval(waterfallIntervalId);
         waterfallIntervalId = null;
       }
-      const intervaloMs = (ventanaSegundos / WATERFALL_HISTORY) * 1000;
+      const maxTime = ventanaLargaSegundos;
+      const intervaloMs = (maxTime / WATERFALL_HISTORY) * 1000;
       const intervalo = Math.min(Math.max(intervaloMs, 100), 10000);
-      console.log(`Waterfall: intervalo de ${intervalo} ms (ventana de ${ventanaSegundos} s)`);
+      console.log(`Waterfall: intervalo de ${intervalo} ms (ventana de ${maxTime} s)`);
       
       waterfallIntervalId = setInterval(() => {
         if (!sessionActive) return;
@@ -1470,23 +1710,41 @@
           const idx = Math.min(i * step, smoothed.length - 1);
           reduced.push(smoothed[idx] || 0);
         }
-        waterfallHistory.push(reduced);
+        // Insertar al principio (más reciente en idx=0)
+        waterfallHistory.unshift(reduced);
         if (waterfallHistory.length > WATERFALL_HISTORY) {
-          waterfallHistory.shift();
+          waterfallHistory.pop(); // quitar la más antigua
         }
         updateWaterfall();
+
+        // Guardar frecuencias dominantes (tiempo en segundos desde inicio)
+        const now = Date.now();
+        if (sessionStartTime === null) {
+          sessionStartTime = now;
+        }
+        const timeSec = (now - sessionStartTime) / 1000;
+        freqHistory.unshift({
+          time: timeSec,
+          freqX: currentFreqX,
+          freqY: currentFreqY,
+          freqZ: currentFreqZ
+        });
+        if (freqHistory.length > WATERFALL_HISTORY) {
+          freqHistory.pop();
+        }
+
       }, intervalo);
     }
 
-    // Crear sprite de texto
-    function createTextSprite(text, position, color = 0xffffff, size = 0.6) {
+    // ========== CREAR SPRITE DE TEXTO ==========
+    function createTextSprite(text, position, color = 0xffffff, size = 0.8) {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       canvas.width = 256;
       canvas.height = 64;
       context.fillStyle = 'rgba(0,0,0,0)';
       context.fillRect(0, 0, canvas.width, canvas.height);
-      context.font = 'Bold 28px Arial';
+      context.font = 'Bold 32px Arial';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.fillStyle = '#fff';
@@ -1499,7 +1757,7 @@
       return sprite;
     }
 
-    // Inicializar escena waterfall
+    // ========== INICIALIZAR ESCENA WATERFALL ==========
     function initWaterfall() {
       const width = wContainer.clientWidth || 800;
       const height = wContainer.clientHeight || 500;
@@ -1534,41 +1792,7 @@
       backLight.position.set(-5, 5, -10);
       wScene.add(backLight);
 
-      // --- EJES ---
-      const axisGroup = new THREE.Group();
-      wScene.add(axisGroup);
-      const axisMat = new THREE.LineBasicMaterial({ color: 0xaaaaaa });
-      const frontZ = 4.0;
-
-      const xPoints = [new THREE.Vector3(-4, 0, frontZ), new THREE.Vector3(4, 0, frontZ)];
-      axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(xPoints), axisMat));
-      const yPoints = [new THREE.Vector3(-4, 0, frontZ), new THREE.Vector3(-4, 4, frontZ)];
-      axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(yPoints), axisMat));
-      const zPoints = [new THREE.Vector3(-4, 0, -4), new THREE.Vector3(-4, 0, 4)];
-      axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(zPoints), axisMat));
-
-      axisGroup.add(createTextSprite('Frecuencia (Hz)', new THREE.Vector3(4.8, -0.3, frontZ), 0xffffff, 0.7));
-      axisGroup.add(createTextSprite('Amplitud', new THREE.Vector3(-4, 4.8, frontZ), 0xffffff, 0.7));
-      axisGroup.add(createTextSprite('Tiempo (s)', new THREE.Vector3(-4, -0.5, 5.2), 0xffffff, 0.7));
-
-      for (let f = 0; f <= 24; f += 4) {
-        const xPos = -4 + (f / FREQ_MAX) * 8;
-        const tick = [new THREE.Vector3(xPos, -0.1, frontZ), new THREE.Vector3(xPos, 0.1, frontZ)];
-        axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
-        axisGroup.add(createTextSprite(f.toString(), new THREE.Vector3(xPos, -0.5, frontZ), 0xffffff, 0.4));
-      }
-      for (let a = 0; a <= 30; a += 5) {
-        const yPos = (a / AMPLITUD_MAX) * 4;
-        const tick = [new THREE.Vector3(-4.15, yPos, frontZ), new THREE.Vector3(-3.85, yPos, frontZ)];
-        axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
-        axisGroup.add(createTextSprite(a.toString(), new THREE.Vector3(-4.8, yPos, frontZ), 0xffffff, 0.35));
-      }
-      for (let t = -15; t <= 15; t += 5) {
-        const zPos = (t / 15) * 4;
-        const tick = [new THREE.Vector3(-4, -0.1, zPos), new THREE.Vector3(-4, 0.1, zPos)];
-        axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tick), axisMat));
-        axisGroup.add(createTextSprite(t.toString(), new THREE.Vector3(-4.6, -0.5, zPos), 0xffffff, 0.4));
-      }
+      crearEjesYEtiquetas();
 
       wGroup = new THREE.Group();
       wScene.add(wGroup);
@@ -1589,7 +1813,7 @@
       animateWF();
     }
 
-    // Crear una lámina (área + contorno)
+    // ========== CREAR LÁMINA (ÁREA + CONTORNO) ==========
     function createSlice(amplitudes, zPos, maxAmp) {
       const group = new THREE.Group();
       const xMin = -4, xMax = 4;
@@ -1656,10 +1880,10 @@
       return group;
     }
 
-    // Actualizar todas las láminas
+    // ========== ACTUALIZAR LÁMINAS (con orden invertido: idx=0 más reciente en z=4) ==========
     function updateWaterfall() {
       if (!wGroup) return;
-      while(wGroup.children.length > 0) {
+      while (wGroup.children.length > 0) {
         const child = wGroup.children[0];
         child.children.forEach(c => {
           if (c.geometry) c.geometry.dispose();
@@ -1672,17 +1896,24 @@
         const row = waterfallHistory[idx] || new Array(WATERFALL_BINS).fill(0);
         let maxAmp = 0;
         for (let v of row) if (v > maxAmp) maxAmp = v;
-        const zPos = -4 + (idx / (total - 1 || 1)) * 8;
+        // zPos = 4 - (idx/(total-1))*8, idx=0 -> z=4 (frente), idx=total-1 -> z=-4 (fondo)
+        const zPos = 4 - (idx / (total - 1 || 1)) * 8;
         wGroup.add(createSlice(row, zPos, maxAmp));
       }
     }
 
     // ========== INICIALIZACIÓN ==========
     window.addEventListener('load', () => {
+      document.getElementById('windowShortVal').value = 10;
+      document.getElementById('windowShortUnit').value = 'seconds';
+      document.getElementById('windowLongVal').value = 40;
+      document.getElementById('windowLongUnit').value = 'seconds';
+      ventanaCortaSegundos = 10;
+      ventanaLargaSegundos = 40;
+
       initWaterfall();
       resetWaterfallHistory();
       updateWaterfall();
-      // Iniciar el intervalo con la duración por defecto (20 s)
       reiniciarIntervaloWaterfall();
     });
 
@@ -1695,6 +1926,8 @@
         if (!sessionActive) {
           sessionActive = true;
           sessionData = [];
+          freqHistory = [];
+          sessionStartTime = Date.now();
           console.log("Nueva sesión iniciada");
           setStatusMessage("🟢 Sesión activa - Recibiendo datos", "#66fcf1");
         }
